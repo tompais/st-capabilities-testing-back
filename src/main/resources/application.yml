@@ -1,0 +1,89 @@
+spring:
+  application:
+    name: capabilities-testing
+
+  # JPA Configuration
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+        format_sql: true
+    open-in-view: false
+
+  # H2 Database Configuration
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  # MongoDB Configuration
+  data:
+    mongodb:
+      host: localhost
+      port: 27017
+      database: capabilities_testing
+      authentication-database: admin
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 2000ms
+
+  # Cache Configuration
+  cache:
+    type: redis
+    redis:
+      time-to-live: 300000 # 5 minutes
+      key-prefix: "capabilities-testing:"
+      use-key-prefix: true
+
+  # Jackson Configuration
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
+
+# Server Configuration
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+  compression:
+    enabled: true
+    mime-types: text/html,text/xml,text/plain,text/css,text/javascript,application/javascript,application/json
+    min-response-size: 1024
+
+# Management/Actuator Configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
+# External Service Configuration
+external:
+  customer:
+    service:
+      url: http://localhost:9090/customers
+
+# Logging Configuration (apunta a log4j2.yml)
+logging:
+  config: classpath:log4j2.yml

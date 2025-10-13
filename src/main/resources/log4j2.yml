@@ -1,0 +1,82 @@
+Configuration:
+  status: WARN
+
+  Properties:
+    Property:
+      - name: LOG_PATTERN
+        value: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+      - name: APP_NAME
+        value: "capabilities-testing"
+
+  Appenders:
+    # Solo Console Appender - sin archivos
+    Console:
+      name: ConsoleAppender
+      target: SYSTEM_OUT
+      PatternLayout:
+        pattern: "${LOG_PATTERN}"
+
+  Loggers:
+    # Application specific loggers
+    Logger:
+      - name: com.santandertecnologia.capabilitiestesting
+        level: DEBUG
+        additivity: false
+        AppenderRef:
+          ref: ConsoleAppender
+
+      # Spring Framework loggers
+      - name: org.springframework
+        level: INFO
+        additivity: false
+        AppenderRef:
+          ref: ConsoleAppender
+
+      # Hibernate/JPA loggers
+      - name: org.hibernate
+        level: WARN
+        additivity: false
+        AppenderRef:
+          ref: ConsoleAppender
+
+      # Hibernate SQL logging (for debugging)
+      - name: org.hibernate.SQL
+        level: DEBUG
+        additivity: false
+        AppenderRef:
+          ref: ConsoleAppender
+
+      # MongoDB loggers
+      - name: org.springframework.data.mongodb
+        level: INFO
+        additivity: false
+        AppenderRef:
+          ref: ConsoleAppender
+
+      # Redis loggers
+      - name: org.springframework.data.redis
+        level: INFO
+        additivity: false
+        AppenderRef:
+          ref: ConsoleAppender
+
+      # HTTP Client loggers
+      - name: org.apache.http
+        level: WARN
+        additivity: false
+        AppenderRef:
+          ref: ConsoleAppender
+
+      # Tomcat/Server loggers
+      - name: org.apache.catalina
+        level: INFO
+        additivity: false
+        AppenderRef:
+          ref: ConsoleAppender
+
+    # Root logger
+    Root:
+      level: INFO
+      AppenderRef:
+        ref: ConsoleAppender
+
