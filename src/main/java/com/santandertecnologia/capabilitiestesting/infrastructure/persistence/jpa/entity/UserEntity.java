@@ -18,7 +18,7 @@ import lombok.NoArgsConstructor;
 public class UserEntity {
 
   @Id
-  @GeneratedValue(strategy = GenerationType.UUID)
+  // Removido @GeneratedValue - el UUID se genera en el servicio de dominio
   private UUID id;
 
   @Column(unique = true, nullable = false)

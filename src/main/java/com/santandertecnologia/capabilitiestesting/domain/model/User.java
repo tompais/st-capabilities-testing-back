@@ -15,7 +15,7 @@ import lombok.extern.jackson.Jacksonized;
 @Jacksonized
 public class User {
 
-  private final UUID id;
+  @Builder.Default private final UUID id = UUID.randomUUID();
   private final String username;
   private final String email;
   private final String firstName;
