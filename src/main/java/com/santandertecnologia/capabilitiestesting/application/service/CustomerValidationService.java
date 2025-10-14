@@ -116,28 +116,4 @@ public class CustomerValidationService implements CustomerValidationUseCase {
                           return passesValidation;
                         }));
   }
-
-  /** Método utilitario para obtener un resumen del estado del cliente. */
-  public Optional<String> getCustomerStatusSummary(UUID customerId) {
-    log.debug("Getting status summary for customer: {}", customerId);
-
-    return getCustomerInfo(customerId)
-        .map(
-            customer -> {
-              String summaryText =
-                  "Customer "
-                      + customerId
-                      + ": "
-                      + "Active="
-                      + customer.isActive()
-                      + ", Risk="
-                      + customer.riskLevel()
-                      + ", CanOperate="
-                      + customer.canPerformOperations()
-                      + ", RecentActivity="
-                      + customer.hasRecentActivity();
-              log.debug("Customer summary: {}", summaryText);
-              return summaryText;
-            });
-  }
 }

@@ -169,4 +169,43 @@ public final class MockUtils {
         .riskLevel(riskLevel)
         .build();
   }
+
+  /**
+   * Crea un ExternalCustomer mock con nivel de riesgo y estado activo personalizados.
+   *
+   * @param riskLevel Nivel de riesgo del cliente
+   * @param active Si el cliente está activo o no
+   * @return ExternalCustomer con los parámetros especificados
+   */
+  public static ExternalCustomer mockExternalCustomer(
+      ExternalCustomer.RiskLevel riskLevel, boolean active) {
+    return ExternalCustomer.builder()
+        .customerId(TestConstants.CUSTOMER_ID)
+        .name(TestConstants.CUSTOMER_NAME)
+        .email(TestConstants.CUSTOMER_EMAIL)
+        .active(active)
+        .riskLevel(riskLevel)
+        .build();
+  }
+
+  /**
+   * Crea un ExternalCustomer mock completamente parametrizado.
+   *
+   * @param id UUID del cliente
+   * @param name Nombre del cliente
+   * @param email Email del cliente
+   * @param active Si el cliente está activo
+   * @param riskLevel Nivel de riesgo
+   * @return ExternalCustomer con todos los parámetros especificados
+   */
+  public static ExternalCustomer mockExternalCustomer(
+      UUID id, String name, String email, boolean active, ExternalCustomer.RiskLevel riskLevel) {
+    return ExternalCustomer.builder()
+        .customerId(id)
+        .name(name)
+        .email(email)
+        .active(active)
+        .riskLevel(riskLevel)
+        .build();
+  }
 }

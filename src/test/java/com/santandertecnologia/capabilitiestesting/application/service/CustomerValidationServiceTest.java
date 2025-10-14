@@ -69,21 +69,6 @@ class CustomerValidationServiceTest {
         Arguments.of(false, ExternalCustomer.RiskLevel.BLOCKED, false, false));
   }
 
-  /** Proveedor de datos para summary generation. */
-  private static Stream<Arguments> provideSummaryData() {
-    return Stream.of(
-        Arguments.of(
-            ExternalCustomer.RiskLevel.LOW, true, ".*Active=true.*Risk=LOW.*CanOperate=true.*"),
-        Arguments.of(
-            ExternalCustomer.RiskLevel.HIGH, true, ".*Active=true.*Risk=HIGH.*CanOperate=false.*"),
-        Arguments.of(
-            ExternalCustomer.RiskLevel.LOW, false, ".*Active=false.*Risk=LOW.*CanOperate=false.*"),
-        Arguments.of(
-            ExternalCustomer.RiskLevel.CRITICAL,
-            false,
-            ".*Active=false.*Risk=CRITICAL.*CanOperate=false.*"));
-  }
-
   @BeforeEach
   void setUp() {
     // Configurar comportamiento por defecto del cache: siempre devuelve empty (cache miss)
@@ -108,16 +93,8 @@ class CustomerValidationServiceTest {
   })
   void shouldValidateCustomerOperationPermissionsBasedOnRiskAndStatus(
       ExternalCustomer.RiskLevel riskLevel, boolean active, boolean expectedCanOperate) {
-    // Arrange
-    ExternalCustomer customer =
-        ExternalCustomer.builder()
-            .customerId(CUSTOMER_ID)
-            .name("Test Customer")
-            .email("test@santander.com")
-            .active(active)
-            .riskLevel(riskLevel)
-            .build();
-
+    // Arrange - Usar MockUtils para crear el customer con los parámetros necesarios
+    ExternalCustomer customer = MockUtils.mockExternalCustomer(riskLevel, active);
     when(externalCustomerService.getCustomerById(CUSTOMER_ID)).thenReturn(Optional.of(customer));
 
     // Act
@@ -189,33 +166,5 @@ class CustomerValidationServiceTest {
 
     // Assert
     assertThat(result).isPresent().contains(expectedValidation);
-  }
-
-  @ParameterizedTest(name = "Status summary for risk={0} and active={1}")
-  @DisplayName("Should generate correct status summaries for different customer states")
-  @MethodSource("provideSummaryData")
-  void shouldGenerateCorrectStatusSummaries(
-      ExternalCustomer.RiskLevel riskLevel, boolean active, String expectedSummaryPattern) {
-    // Arrange
-    ExternalCustomer customer =
-        ExternalCustomer.builder()
-            .customerId(CUSTOMER_ID)
-            .name("Summary Test")
-            .email("summary@santander.com")
-            .active(active)
-            .riskLevel(riskLevel)
-            .build();
-
-    when(externalCustomerService.getCustomerById(CUSTOMER_ID)).thenReturn(Optional.of(customer));
-
-    // Act
-    Optional<String> summary = customerValidationService.getCustomerStatusSummary(CUSTOMER_ID);
-
-    // Assert
-    assertThat(summary).isPresent();
-    assertThat(summary.get()).contains(CUSTOMER_ID.toString());
-    assertThat(summary.get()).contains("Active=" + active);
-    assertThat(summary.get()).contains("Risk=" + riskLevel);
-    assertThat(summary.get()).matches(expectedSummaryPattern);
   }
 }
