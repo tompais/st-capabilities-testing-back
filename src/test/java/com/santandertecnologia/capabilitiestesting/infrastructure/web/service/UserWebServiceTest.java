@@ -31,7 +31,7 @@ import org.springframework.web.server.ResponseStatusException;
  * EXCEPCIONES. Refactorizado para usar TestConstants.
  */
 @ExtendWith(MockitoExtension.class)
-@DisplayName("UserWebService Parameterized Tests")
+@DisplayName("UserWebService Tests")
 class UserWebServiceTest {
 
   @Mock private UserUseCase userUseCase;

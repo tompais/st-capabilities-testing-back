@@ -27,8 +27,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * fuentes de datos. Refactorizado para usar MockUtils y TestConstants.
  */
 @ExtendWith(MockitoExtension.class)
-@DisplayName("CustomerValidationService Parameterized Tests")
-class CustomerValidationServiceParameterizedTest {
+@DisplayName("CustomerValidationService Tests")
+class CustomerValidationServiceTest {
 
   @Mock private ExternalCustomerService externalCustomerService;
 

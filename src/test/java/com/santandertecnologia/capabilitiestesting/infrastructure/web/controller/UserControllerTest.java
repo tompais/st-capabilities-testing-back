@@ -32,7 +32,7 @@ import org.springframework.web.server.ResponseStatusException;
  */
 @WebMvcTest(UserController.class)
 @ActiveProfiles("test") // Forzar uso del perfil test
-@DisplayName("UserController Integration Tests - Refactored")
+@DisplayName("UserController Tests")
 class UserControllerTest {
 
   // Inicializar objetos de prueba a nivel de clase usando TestConstants

@@ -7,7 +7,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.santandertecnologia.capabilitiestesting.CapabilitiesTestingApplication;
 import com.santandertecnologia.capabilitiestesting.domain.model.ExternalCustomer;
 import com.santandertecnologia.capabilitiestesting.domain.model.User;
 import com.santandertecnologia.capabilitiestesting.domain.port.out.ExternalCustomerService;
@@ -42,7 +41,7 @@ import org.springframework.web.context.WebApplicationContext;
  * embedded Redis para caché - MockWebServer para simular servicios externos - Principios FIRST y
  * patrón AAA - UUIDs e inner classes
  */
-@SpringBootTest(classes = CapabilitiesTestingApplication.class)
+@SpringBootTest
 @ActiveProfiles("test") // Usar perfil test que carga application-test.yml
 @EmbeddedRedisStandalone // Iniciar Redis embebido automáticamente para los tests
 @DisplayName("Complete Integration Tests - All Technologies with Embedded DBs")
