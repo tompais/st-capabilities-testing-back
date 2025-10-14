@@ -4,7 +4,6 @@ import com.santandertecnologia.capabilitiestesting.domain.model.User;
 import com.santandertecnologia.capabilitiestesting.domain.port.in.UserUseCase;
 import com.santandertecnologia.capabilitiestesting.domain.port.out.CacheService;
 import com.santandertecnologia.capabilitiestesting.domain.port.out.UserRepository;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -106,7 +105,6 @@ public class UserService implements UserUseCase {
                       .phoneNumber(existingUser.getPhoneNumber())
                       .department(existingUser.getDepartment())
                       .createdAt(existingUser.getCreatedAt())
-                      .updatedAt(LocalDateTime.now())
                       .lastLoginAt(existingUser.getLastLoginAt())
                       .build();
 

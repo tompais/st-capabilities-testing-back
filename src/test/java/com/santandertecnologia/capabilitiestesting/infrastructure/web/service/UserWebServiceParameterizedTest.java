@@ -1,5 +1,6 @@
 package com.santandertecnologia.capabilitiestesting.infrastructure.web.service;
 
+import static com.santandertecnologia.capabilitiestesting.utils.TestConstants.USER_ID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -12,7 +13,6 @@ import com.santandertecnologia.capabilitiestesting.infrastructure.web.dto.UserRe
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Stream;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -28,7 +28,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 /**
  * Tests parametrizados para UserWebService. Enfocado en testear la LÓGICA DE MAPEO y MANEJO DE
- * EXCEPCIONES.
+ * EXCEPCIONES. Refactorizado para usar TestConstants.
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("UserWebService Parameterized Tests")
@@ -37,8 +37,6 @@ class UserWebServiceParameterizedTest {
   @Mock private UserUseCase userUseCase;
 
   @InjectMocks private UserWebService userWebService;
-
-  private UUID userId;
 
   /** Proveedor de datos para testing de mapeo de requests. */
   private static Stream<Arguments> provideUserRequestMappingData() {
@@ -66,11 +64,6 @@ class UserWebServiceParameterizedTest {
         );
   }
 
-  @BeforeEach
-  void setUp() {
-    userId = UUID.randomUUID();
-  }
-
   @ParameterizedTest(name = "Status string ''{0}'' should map to User.Status.{1}")
   @DisplayName("Should correctly parse status strings to User.Status enum")
   @CsvSource({
@@ -88,7 +81,7 @@ class UserWebServiceParameterizedTest {
     // Arrange
     User user =
         User.builder()
-            .id(userId)
+            .id(USER_ID)
             .username("testuser")
             .email("test@santander.com")
             .firstName("Test")
@@ -96,10 +89,10 @@ class UserWebServiceParameterizedTest {
             .status(expectedStatus)
             .build();
 
-    when(userUseCase.updateUserStatus(userId, expectedStatus)).thenReturn(Optional.of(user));
+    when(userUseCase.updateUserStatus(USER_ID, expectedStatus)).thenReturn(Optional.of(user));
 
     // Act
-    UserResponse result = userWebService.updateUserStatus(userId, statusString);
+    UserResponse result = userWebService.updateUserStatus(USER_ID, statusString);
 
     // Assert - UserResponse solo tiene los campos: id, email, name, phone, active
     assertThat(result.active()).isEqualTo(expectedStatus == User.Status.ACTIVE);
@@ -110,7 +103,7 @@ class UserWebServiceParameterizedTest {
   @ValueSource(strings = {"INVALID", "ENABLED", "DISABLED", "", "null", "123", "active_user"})
   void shouldThrowExceptionForInvalidStatusStrings(String invalidStatus) {
     // Act & Assert
-    assertThatThrownBy(() -> userWebService.updateUserStatus(userId, invalidStatus))
+    assertThatThrownBy(() -> userWebService.updateUserStatus(USER_ID, invalidStatus))
         .isInstanceOf(ResponseStatusException.class)
         .satisfies(
             ex -> {
@@ -202,12 +195,12 @@ class UserWebServiceParameterizedTest {
   })
   void shouldHandleUserNotFoundScenarios(boolean deleteResult, HttpStatus expectedStatus) {
     // Arrange - Simular que el usuario no existe
-    when(userUseCase.getUserById(userId)).thenReturn(Optional.empty());
-    when(userUseCase.updateUserStatus(userId, User.Status.ACTIVE)).thenReturn(Optional.empty());
-    when(userUseCase.deleteUser(userId)).thenReturn(deleteResult);
+    when(userUseCase.getUserById(USER_ID)).thenReturn(Optional.empty());
+    when(userUseCase.updateUserStatus(USER_ID, User.Status.ACTIVE)).thenReturn(Optional.empty());
+    when(userUseCase.deleteUser(USER_ID)).thenReturn(deleteResult);
 
     // Act & Assert - Test para getUserById
-    assertThatThrownBy(() -> userWebService.getUserById(userId))
+    assertThatThrownBy(() -> userWebService.getUserById(USER_ID))
         .isInstanceOf(ResponseStatusException.class)
         .satisfies(
             ex -> {
@@ -216,7 +209,7 @@ class UserWebServiceParameterizedTest {
             });
 
     // Act & Assert - Test para updateUserStatus
-    assertThatThrownBy(() -> userWebService.updateUserStatus(userId, "ACTIVE"))
+    assertThatThrownBy(() -> userWebService.updateUserStatus(USER_ID, "ACTIVE"))
         .isInstanceOf(ResponseStatusException.class)
         .satisfies(
             ex -> {
@@ -225,7 +218,7 @@ class UserWebServiceParameterizedTest {
             });
 
     // Act & Assert - Test para deleteUser
-    assertThatThrownBy(() -> userWebService.deleteUser(userId))
+    assertThatThrownBy(() -> userWebService.deleteUser(USER_ID))
         .isInstanceOf(ResponseStatusException.class)
         .satisfies(
             ex -> {
@@ -241,7 +234,7 @@ class UserWebServiceParameterizedTest {
     // Arrange
     User user =
         User.builder()
-            .id(userId)
+            .id(USER_ID)
             .username("testuser")
             .email("test@santander.com")
             .firstName("Test")
@@ -251,13 +244,13 @@ class UserWebServiceParameterizedTest {
             .status(status)
             .build();
 
-    when(userUseCase.getUserById(userId)).thenReturn(Optional.of(user));
+    when(userUseCase.getUserById(USER_ID)).thenReturn(Optional.of(user));
 
     // Act
-    UserResponse result = userWebService.getUserById(userId);
+    UserResponse result = userWebService.getUserById(USER_ID);
 
     // Assert - Solo verificar campos disponibles en UserResponse
-    assertThat(result.id()).isEqualTo(userId);
+    assertThat(result.id()).isEqualTo(USER_ID);
     assertThat(result.email()).isEqualTo("test@santander.com");
     assertThat(result.name()).isEqualTo("Test User"); // getFullName() mapeado a name
     assertThat(result.phone()).isEqualTo("+34666123456");

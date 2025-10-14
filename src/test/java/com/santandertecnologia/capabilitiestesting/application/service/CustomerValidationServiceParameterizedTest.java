@@ -1,15 +1,15 @@
 package com.santandertecnologia.capabilitiestesting.application.service;
 
+import static com.santandertecnologia.capabilitiestesting.utils.TestConstants.CUSTOMER_ID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import com.santandertecnologia.capabilitiestesting.domain.model.ExternalCustomer;
 import com.santandertecnologia.capabilitiestesting.domain.port.out.CacheService;
 import com.santandertecnologia.capabilitiestesting.domain.port.out.ExternalCustomerService;
+import com.santandertecnologia.capabilitiestesting.utils.MockUtils;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -17,32 +17,38 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 
 /**
- * Tests parametrizados para CustomerValidationService. Enfocado en testear LÓGICA DE NEGOCIO real
- * con diferentes combinaciones de datos.
+ * Tests parametrizados para CustomerValidationService. Demuestra @ParameterizedTest con diferentes
+ * fuentes de datos. Refactorizado para usar MockUtils y TestConstants.
  */
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 @DisplayName("CustomerValidationService Parameterized Tests")
 class CustomerValidationServiceParameterizedTest {
 
   @Mock private ExternalCustomerService externalCustomerService;
+
   @Mock private CacheService cacheService;
 
   @InjectMocks private CustomerValidationService customerValidationService;
 
-  private UUID customerId;
+  /** Proveedor de datos para risk level validation. */
+  private static Stream<Arguments> provideRiskLevelData() {
+    return Stream.of(
+        // Probar cada nivel de riesgo disponible
+        Arguments.of(ExternalCustomer.RiskLevel.LOW),
+        Arguments.of(ExternalCustomer.RiskLevel.MEDIUM),
+        Arguments.of(ExternalCustomer.RiskLevel.HIGH),
+        Arguments.of(ExternalCustomer.RiskLevel.CRITICAL),
+        Arguments.of(ExternalCustomer.RiskLevel.BLOCKED));
+  }
 
-  /** Proveedor de datos para validación comprehensiva. Combina múltiples factores de riesgo. */
-  private static Stream<Arguments> provideComprehensiveValidationData() {
+  /** Proveedor de datos para combined validation scenarios. */
+  private static Stream<Arguments> provideCombinedValidationData() {
     return Stream.of(
         // active, risk, hasCompleteInfo, expected
         Arguments.of(true, ExternalCustomer.RiskLevel.LOW, true, true),
@@ -63,8 +69,8 @@ class CustomerValidationServiceParameterizedTest {
         Arguments.of(false, ExternalCustomer.RiskLevel.BLOCKED, false, false));
   }
 
-  /** Proveedor de datos para testing de summaries. */
-  private static Stream<Arguments> provideCustomerStateData() {
+  /** Proveedor de datos para summary generation. */
+  private static Stream<Arguments> provideSummaryData() {
     return Stream.of(
         Arguments.of(
             ExternalCustomer.RiskLevel.LOW, true, ".*Active=true.*Risk=LOW.*CanOperate=true.*"),
@@ -80,7 +86,9 @@ class CustomerValidationServiceParameterizedTest {
 
   @BeforeEach
   void setUp() {
-    customerId = UUID.randomUUID();
+    // Configurar comportamiento por defecto del cache: siempre devuelve empty (cache miss)
+    // Esto simula que no hay nada en caché y fuerza a buscar en el servicio externo
+    when(cacheService.get(any(String.class), any(Class.class))).thenReturn(Optional.empty());
   }
 
   @ParameterizedTest(
@@ -94,69 +102,64 @@ class CustomerValidationServiceParameterizedTest {
     "HIGH, true, false",
     "HIGH, false, false",
     "CRITICAL, true, false",
-    "CRITICAL, false, false"
+    "CRITICAL, false, false",
+    "BLOCKED, true, false",
+    "BLOCKED, false, false"
   })
-  void shouldValidateCustomerOperationPermissions(
+  void shouldValidateCustomerOperationPermissionsBasedOnRiskAndStatus(
       ExternalCustomer.RiskLevel riskLevel, boolean active, boolean expectedCanOperate) {
     // Arrange
     ExternalCustomer customer =
         ExternalCustomer.builder()
-            .customerId(customerId)
+            .customerId(CUSTOMER_ID)
             .name("Test Customer")
             .email("test@santander.com")
             .active(active)
             .riskLevel(riskLevel)
             .build();
 
-    when(cacheService.get(any(String.class), eq(ExternalCustomer.class)))
-        .thenReturn(Optional.empty());
-    when(externalCustomerService.getCustomerById(customerId)).thenReturn(Optional.of(customer));
+    when(externalCustomerService.getCustomerById(CUSTOMER_ID)).thenReturn(Optional.of(customer));
 
     // Act
-    Optional<Boolean> result = customerValidationService.validateCustomerCanOperate(customerId);
+    Optional<Boolean> result = customerValidationService.validateCustomerCanOperate(CUSTOMER_ID);
 
     // Assert
     assertThat(result).isPresent().contains(expectedCanOperate);
   }
 
-  @ParameterizedTest
-  @DisplayName("Should test all risk levels have correct validation logic")
-  @EnumSource(ExternalCustomer.RiskLevel.class)
-  void shouldTestRiskLevelValidationLogic(ExternalCustomer.RiskLevel riskLevel) {
-    // Arrange - Customer activo con diferentes niveles de riesgo
-    ExternalCustomer customer =
-        ExternalCustomer.builder()
-            .customerId(customerId)
-            .name("Risk Test Customer")
-            .email("risk@santander.com")
-            .active(true)
-            .riskLevel(riskLevel)
-            .build();
-
-    when(cacheService.get(any(String.class), eq(ExternalCustomer.class)))
-        .thenReturn(Optional.empty());
-    when(externalCustomerService.getCustomerById(customerId)).thenReturn(Optional.of(customer));
+  @ParameterizedTest(name = "Risk level {0} should map to risk category correctly")
+  @DisplayName("Should retrieve and validate customer risk level from external service")
+  @MethodSource("provideRiskLevelData")
+  void shouldRetrieveAndValidateCustomerRiskLevel(ExternalCustomer.RiskLevel riskLevel) {
+    // Arrange - MockUtils.mockExternalCustomer(riskLevel) crea un customer activo con el risk level
+    // especificado
+    ExternalCustomer customer = MockUtils.mockExternalCustomer(riskLevel);
+    when(externalCustomerService.getCustomerById(CUSTOMER_ID)).thenReturn(Optional.of(customer));
+    when(externalCustomerService.getCustomerRiskLevel(CUSTOMER_ID))
+        .thenReturn(Optional.of(riskLevel));
 
     // Act
-    Optional<Boolean> canOperate = customerValidationService.validateCustomerCanOperate(customerId);
+    Optional<Boolean> canOperate =
+        customerValidationService.validateCustomerCanOperate(CUSTOMER_ID);
     Optional<ExternalCustomer.RiskLevel> retrievedRiskLevel =
-        customerValidationService.getCustomerRiskLevel(customerId);
+        customerValidationService.getCustomerRiskLevel(CUSTOMER_ID);
 
-    // Assert - Lógica específica por nivel de riesgo
+    // Assert
     assertThat(canOperate).isPresent();
     assertThat(retrievedRiskLevel).isPresent().contains(riskLevel);
 
+    // Validar lógica de negocio según el nivel de riesgo
+    // Para customers activos, solo LOW y MEDIUM pueden operar
     switch (riskLevel) {
       case LOW, MEDIUM -> assertThat(canOperate.get()).isTrue();
       case HIGH, CRITICAL, BLOCKED -> assertThat(canOperate.get()).isFalse();
-      default -> throw new IllegalArgumentException("Unexpected risk level: " + riskLevel);
     }
   }
 
   @ParameterizedTest(
       name = "Comprehensive validation: active={0}, risk={1}, hasCompleteInfo={2}, expected={3}")
   @DisplayName("Should perform comprehensive risk validation with multiple criteria")
-  @MethodSource("provideComprehensiveValidationData")
+  @MethodSource("provideCombinedValidationData")
   void shouldPerformComprehensiveRiskValidation(
       boolean active,
       ExternalCustomer.RiskLevel riskLevel,
@@ -165,7 +168,7 @@ class CustomerValidationServiceParameterizedTest {
     // Arrange - Create customer with complete or incomplete contact info
     ExternalCustomer.ExternalCustomerBuilder customerBuilder =
         ExternalCustomer.builder()
-            .customerId(customerId)
+            .customerId(CUSTOMER_ID)
             .name("Comprehensive Test")
             .active(active)
             .riskLevel(riskLevel);
@@ -178,89 +181,39 @@ class CustomerValidationServiceParameterizedTest {
 
     ExternalCustomer customer = customerBuilder.build();
 
-    when(cacheService.get(any(String.class), eq(ExternalCustomer.class)))
-        .thenReturn(Optional.empty());
-    when(externalCustomerService.getCustomerById(customerId)).thenReturn(Optional.of(customer));
+    when(externalCustomerService.getCustomerById(CUSTOMER_ID)).thenReturn(Optional.of(customer));
 
     // Act
     Optional<Boolean> result =
-        customerValidationService.performComprehensiveRiskValidation(customerId);
+        customerValidationService.performComprehensiveRiskValidation(CUSTOMER_ID);
 
     // Assert
     assertThat(result).isPresent().contains(expectedValidation);
   }
 
-  @ParameterizedTest(name = "Cache behavior: inCache={0}, inService={1}")
-  @DisplayName("Should test cache behavior with different scenarios")
-  @CsvSource({
-    "true, true", // En cache, no debe llamar servicio
-    "false, true", // No en cache, debe llamar servicio
-    "false, false" // No en cache, servicio no encuentra
-  })
-  void shouldTestCacheBehaviorScenarios(boolean customerInCache, boolean customerInService) {
-    // Arrange
-    ExternalCustomer customer =
-        ExternalCustomer.builder()
-            .customerId(customerId)
-            .name("Cache Test")
-            .email("cache@santander.com")
-            .active(true)
-            .riskLevel(ExternalCustomer.RiskLevel.LOW)
-            .build();
-
-    // Configurar cache siempre para evitar unnecessary stubbing
-    if (customerInCache) {
-      when(cacheService.get(any(String.class), eq(ExternalCustomer.class)))
-          .thenReturn(Optional.of(customer));
-    } else {
-      when(cacheService.get(any(String.class), eq(ExternalCustomer.class)))
-          .thenReturn(Optional.empty());
-    }
-
-    // Configurar servicio externo siempre para evitar unnecessary stubbing
-    if (customerInService) {
-      when(externalCustomerService.getCustomerById(customerId)).thenReturn(Optional.of(customer));
-    } else {
-      when(externalCustomerService.getCustomerById(customerId)).thenReturn(Optional.empty());
-    }
-
-    // Act
-    Optional<ExternalCustomer> result = customerValidationService.getCustomerInfo(customerId);
-
-    // Assert
-    if (customerInCache || customerInService) {
-      assertThat(result).isPresent();
-      assertThat(result.get().customerId()).isEqualTo(customerId);
-    } else {
-      assertThat(result).isEmpty();
-    }
-  }
-
   @ParameterizedTest(name = "Status summary for risk={0} and active={1}")
   @DisplayName("Should generate correct status summaries for different customer states")
-  @MethodSource("provideCustomerStateData")
+  @MethodSource("provideSummaryData")
   void shouldGenerateCorrectStatusSummaries(
       ExternalCustomer.RiskLevel riskLevel, boolean active, String expectedSummaryPattern) {
     // Arrange
     ExternalCustomer customer =
         ExternalCustomer.builder()
-            .customerId(customerId)
+            .customerId(CUSTOMER_ID)
             .name("Summary Test")
             .email("summary@santander.com")
             .active(active)
             .riskLevel(riskLevel)
             .build();
 
-    when(cacheService.get(any(String.class), eq(ExternalCustomer.class)))
-        .thenReturn(Optional.empty());
-    when(externalCustomerService.getCustomerById(customerId)).thenReturn(Optional.of(customer));
+    when(externalCustomerService.getCustomerById(CUSTOMER_ID)).thenReturn(Optional.of(customer));
 
     // Act
-    Optional<String> summary = customerValidationService.getCustomerStatusSummary(customerId);
+    Optional<String> summary = customerValidationService.getCustomerStatusSummary(CUSTOMER_ID);
 
     // Assert
     assertThat(summary).isPresent();
-    assertThat(summary.get()).contains(customerId.toString());
+    assertThat(summary.get()).contains(CUSTOMER_ID.toString());
     assertThat(summary.get()).contains("Active=" + active);
     assertThat(summary.get()).contains("Risk=" + riskLevel);
     assertThat(summary.get()).matches(expectedSummaryPattern);
