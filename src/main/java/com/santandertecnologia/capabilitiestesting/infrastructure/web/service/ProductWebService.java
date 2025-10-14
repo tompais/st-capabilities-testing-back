@@ -33,10 +33,6 @@ public class ProductWebService {
       log.error("Invalid product data: {}", e.getMessage());
       throw new ResponseStatusException(
           HttpStatus.BAD_REQUEST, "Invalid product data: " + e.getMessage(), e);
-    } catch (Exception e) {
-      log.error("Error creating product: {}", e.getMessage());
-      throw new ResponseStatusException(
-          HttpStatus.INTERNAL_SERVER_ERROR, "Error creating product", e);
     }
   }
 
@@ -68,22 +64,12 @@ public class ProductWebService {
               + category
               + ". Valid values: ELECTRONICS, CLOTHING, BOOKS, SPORTS, HOME, OTHER",
           e);
-    } catch (Exception e) {
-      log.error("Error searching products by category: {}", e.getMessage());
-      throw new ResponseStatusException(
-          HttpStatus.INTERNAL_SERVER_ERROR, "Error searching products by category", e);
     }
   }
 
   /** Obtiene todos los productos activos. */
   public List<ProductResponse> getActiveProducts() {
-    try {
-      return productUseCase.getActiveProducts().stream().map(this::mapDomainToResponse).toList();
-    } catch (Exception e) {
-      log.error("Error retrieving active products: {}", e.getMessage());
-      throw new ResponseStatusException(
-          HttpStatus.INTERNAL_SERVER_ERROR, "Error retrieving active products", e);
-    }
+    return productUseCase.getActiveProducts().stream().map(this::mapDomainToResponse).toList();
   }
 
   /** Actualiza el stock de un producto con validaciones. */
@@ -103,29 +89,15 @@ public class ProductWebService {
       log.error("Invalid stock value: {}", stock);
       throw new ResponseStatusException(
           HttpStatus.BAD_REQUEST, "Invalid stock value: " + e.getMessage(), e);
-    } catch (ResponseStatusException e) {
-      throw e; // Re-lanzar excepciones ya manejadas
-    } catch (Exception e) {
-      log.error("Error updating product stock: {}", e.getMessage());
-      throw new ResponseStatusException(
-          HttpStatus.INTERNAL_SERVER_ERROR, "Error updating product stock", e);
     }
   }
 
   /** Elimina un producto con validación de existencia. */
   public void deleteProduct(UUID id) {
-    try {
-      boolean deleted = productUseCase.deleteProduct(id);
-      if (!deleted) {
-        log.warn("Product not found for deletion: {}", id);
-        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found with ID: " + id);
-      }
-    } catch (ResponseStatusException e) {
-      throw e; // Re-lanzar excepciones ya manejadas
-    } catch (Exception e) {
-      log.error("Error deleting product: {}", e.getMessage());
-      throw new ResponseStatusException(
-          HttpStatus.INTERNAL_SERVER_ERROR, "Error deleting product", e);
+    boolean deleted = productUseCase.deleteProduct(id);
+    if (!deleted) {
+      log.warn("Product not found for deletion: {}", id);
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found with ID: " + id);
     }
   }
 

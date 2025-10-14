@@ -33,9 +33,6 @@ public class UserWebService {
       log.error("Invalid user data: {}", e.getMessage());
       throw new ResponseStatusException(
           HttpStatus.BAD_REQUEST, "Invalid user data: " + e.getMessage(), e);
-    } catch (Exception e) {
-      log.error("Error creating user: {}", e.getMessage());
-      throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error creating user", e);
     }
   }
 
@@ -54,13 +51,7 @@ public class UserWebService {
 
   /** Obtiene todos los usuarios activos. */
   public List<UserResponse> getActiveUsers() {
-    try {
-      return userUseCase.getActiveUsers().stream().map(this::mapDomainToResponse).toList();
-    } catch (Exception e) {
-      log.error("Error retrieving active users: {}", e.getMessage());
-      throw new ResponseStatusException(
-          HttpStatus.INTERNAL_SERVER_ERROR, "Error retrieving active users", e);
-    }
+    return userUseCase.getActiveUsers().stream().map(this::mapDomainToResponse).toList();
   }
 
   /** Actualiza el estado de un usuario con validación de enum. */
@@ -82,26 +73,15 @@ public class UserWebService {
           HttpStatus.BAD_REQUEST,
           "Invalid status: " + status + ". Valid values: ACTIVE, SUSPENDED, INACTIVE",
           e);
-    } catch (Exception e) {
-      log.error("Error updating user status: {}", e.getMessage());
-      throw new ResponseStatusException(
-          HttpStatus.INTERNAL_SERVER_ERROR, "Error updating user status", e);
     }
   }
 
   /** Elimina un usuario con validación de existencia. */
   public void deleteUser(UUID id) {
-    try {
-      boolean deleted = userUseCase.deleteUser(id);
-      if (!deleted) {
-        log.warn("User not found for deletion: {}", id);
-        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found with ID: " + id);
-      }
-    } catch (ResponseStatusException e) {
-      throw e; // Re-lanzar excepciones ya manejadas
-    } catch (Exception e) {
-      log.error("Error deleting user: {}", e.getMessage());
-      throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error deleting user", e);
+    boolean deleted = userUseCase.deleteUser(id);
+    if (!deleted) {
+      log.warn("User not found for deletion: {}", id);
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found with ID: " + id);
     }
   }
 

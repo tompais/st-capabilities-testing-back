@@ -60,11 +60,9 @@ class UserWebServiceParameterizedTest {
   private static Stream<Arguments> provideExceptionMappingData() {
     return Stream.of(
         // Solo incluir excepciones que el UserWebService maneja específicamente
-        Arguments.of(IllegalArgumentException.class, "Invalid user data", HttpStatus.BAD_REQUEST),
-        // Otras excepciones se mapean a INTERNAL_SERVER_ERROR por el catch-all
-        Arguments.of(RuntimeException.class, "Internal error", HttpStatus.INTERNAL_SERVER_ERROR),
-        Arguments.of(NullPointerException.class, "Null pointer", HttpStatus.INTERNAL_SERVER_ERROR)
-        // Remover IllegalStateException -> BAD_REQUEST porque no está manejado específicamente
+        Arguments.of(IllegalArgumentException.class, "Invalid user data", HttpStatus.BAD_REQUEST)
+        // RuntimeException y NullPointerException ya no se capturan en el servicio
+        // Spring las manejará automáticamente en el controlador como 500
         );
   }
 
@@ -169,7 +167,7 @@ class UserWebServiceParameterizedTest {
   }
 
   @ParameterizedTest(name = "Exception type {0} should map to HTTP status {1}")
-  @DisplayName("Should correctly map different exception types to appropriate HTTP status codes")
+  @DisplayName("Should correctly map IllegalArgumentException to BAD_REQUEST")
   @MethodSource("provideExceptionMappingData")
   void shouldMapExceptionsToCorrectHttpStatus(
       Class<? extends Exception> exceptionType,
@@ -197,11 +195,10 @@ class UserWebServiceParameterizedTest {
             });
   }
 
-  @ParameterizedTest(name = "User not found scenario: deleteUser returns {0}, should throw {1}")
+  @ParameterizedTest(name = "User not found scenario should throw {1}")
   @DisplayName("Should handle user not found scenarios correctly")
   @CsvSource({
-    "false, NOT_FOUND" // Para delete operation - cuando deleteUser devuelve false, debe lanzar
-    // NOT_FOUND
+    "false, NOT_FOUND" // Cuando deleteUser devuelve false, debe lanzar NOT_FOUND
   })
   void shouldHandleUserNotFoundScenarios(boolean deleteResult, HttpStatus expectedStatus) {
     // Arrange - Simular que el usuario no existe
@@ -209,34 +206,32 @@ class UserWebServiceParameterizedTest {
     when(userUseCase.updateUserStatus(userId, User.Status.ACTIVE)).thenReturn(Optional.empty());
     when(userUseCase.deleteUser(userId)).thenReturn(deleteResult);
 
-    // Act & Assert - Test para getUserById - siempre debe lanzar NOT_FOUND
+    // Act & Assert - Test para getUserById
     assertThatThrownBy(() -> userWebService.getUserById(userId))
         .isInstanceOf(ResponseStatusException.class)
         .satisfies(
             ex -> {
               ResponseStatusException rse = (ResponseStatusException) ex;
-              assertThat(rse.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+              assertThat(rse.getStatusCode()).isEqualTo(expectedStatus);
             });
 
-    // Act & Assert - Test para updateUserStatus - siempre debe lanzar NOT_FOUND
+    // Act & Assert - Test para updateUserStatus
     assertThatThrownBy(() -> userWebService.updateUserStatus(userId, "ACTIVE"))
         .isInstanceOf(ResponseStatusException.class)
         .satisfies(
             ex -> {
               ResponseStatusException rse = (ResponseStatusException) ex;
-              assertThat(rse.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+              assertThat(rse.getStatusCode()).isEqualTo(expectedStatus);
             });
 
-    // Act & Assert - Test para deleteUser - solo cuando deleteResult es false
-    if (!deleteResult) {
-      assertThatThrownBy(() -> userWebService.deleteUser(userId))
-          .isInstanceOf(ResponseStatusException.class)
-          .satisfies(
-              ex -> {
-                ResponseStatusException rse = (ResponseStatusException) ex;
-                assertThat(rse.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
-              });
-    }
+    // Act & Assert - Test para deleteUser
+    assertThatThrownBy(() -> userWebService.deleteUser(userId))
+        .isInstanceOf(ResponseStatusException.class)
+        .satisfies(
+            ex -> {
+              ResponseStatusException rse = (ResponseStatusException) ex;
+              assertThat(rse.getStatusCode()).isEqualTo(expectedStatus);
+            });
   }
 
   @ParameterizedTest(name = "Domain User with status {0} should map to response active={1}")
