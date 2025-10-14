@@ -12,13 +12,14 @@ import com.santandertecnologia.capabilitiestesting.domain.model.User;
 import com.santandertecnologia.capabilitiestesting.domain.port.out.ExternalCustomerService;
 import com.santandertecnologia.capabilitiestesting.domain.port.out.UserRepository;
 import com.santandertecnologia.capabilitiestesting.infrastructure.web.dto.CreateUserRequest;
+import com.santandertecnologia.capabilitiestesting.utils.MockUtils;
 import io.github.tobi.laa.spring.boot.embedded.redis.standalone.EmbeddedRedisStandalone;
 import io.restassured.http.ContentType;
 import io.restassured.module.mockmvc.RestAssuredMockMvc;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import lombok.SneakyThrows;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import org.junit.jupiter.api.AfterAll;
@@ -28,6 +29,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
@@ -44,14 +46,15 @@ import org.springframework.web.context.WebApplicationContext;
 @SpringBootTest
 @ActiveProfiles("test") // Usar perfil test que carga application-test.yml
 @EmbeddedRedisStandalone // Iniciar Redis embebido automáticamente para los tests
-@DisplayName("Complete Integration Tests - All Technologies with Embedded DBs")
-class CompleteIntegrationTest {
+@TestInstance(TestInstance.Lifecycle.PER_CLASS) // Permite @BeforeAll/@AfterAll no estáticos
+@DisplayName("User Integration Tests - All Technologies with Embedded DBs")
+class UserIntegrationTest {
 
   // Puerto fijo para MockWebServer que coincide con application-test.yml
   private static final int MOCK_SERVER_PORT = 8080;
 
   // MockWebServer para mockear servicios externos
-  private static MockWebServer mockWebServer;
+  private MockWebServer mockWebServer;
 
   @Autowired private WebApplicationContext webApplicationContext;
 
@@ -62,28 +65,35 @@ class CompleteIntegrationTest {
   // Mock para el servicio de External Customer (evitamos usar MongoDB containers)
   @MockitoBean private ExternalCustomerService externalCustomerService;
 
+  @SneakyThrows
   @BeforeAll
-  static void setUpAll() throws Exception {
+  void setUpAll() {
     // Arrange - Configurar infraestructura de testing
 
     // Iniciar MockWebServer para simular servicios externos en el puerto 8080
     // Este puerto coincide con la URL configurada en application-test.yml
     mockWebServer = new MockWebServer();
     mockWebServer.start(MOCK_SERVER_PORT);
+
+    // Configurar RestAssured una sola vez para todos los tests
+    RestAssuredMockMvc.webAppContextSetup(webApplicationContext);
   }
 
+  @SneakyThrows
   @AfterAll
-  static void tearDownAll() throws Exception {
+  void tearDownAll() {
     // Cleanup - Limpiar recursos después de todos los tests
     if (mockWebServer != null) {
       mockWebServer.shutdown();
     }
+
+    // Reset de RestAssured para limpiar toda la configuración
+    RestAssuredMockMvc.reset();
   }
 
   @BeforeEach
   void setUp() {
-    // Arrange - Configurar RestAssured y limpiar datos antes de cada test
-    RestAssuredMockMvc.webAppContextSetup(webApplicationContext);
+    // Arrange - Limpiar datos antes de cada test
 
     // Limpiar base de datos H2 antes de cada test
     userRepository.deleteAll();
@@ -110,9 +120,10 @@ class CompleteIntegrationTest {
      * Test que demuestra integración completa: API REST + Base de datos H2 + Redis cache + Servicio
      * externo mockeado
      */
+    @SneakyThrows
     @Test
     @DisplayName("Should create user and validate complete flow with all technologies")
-    void shouldCreateUserAndValidateCompleteFlowWithAllTechnologies() throws Exception {
+    void shouldCreateUserAndValidateCompleteFlowWithAllTechnologies() {
       // Arrange - Preparar datos de prueba con UUID único
       UUID userId = UUID.randomUUID();
       String userEmail = "integration.test+" + userId + "@santander.com";
@@ -131,15 +142,14 @@ class CompleteIntegrationTest {
               .setBody("{\"valid\": true, \"risk\": \"LOW\"}")
               .addHeader("Content-Type", "application/json"));
 
-      // Mock para el servicio de External Customer
+      // Mock para el servicio de External Customer usando MockUtils
       ExternalCustomer mockCustomer =
-          ExternalCustomer.builder()
-              .customerId(UUID.randomUUID())
-              .name("Integration Customer")
-              .email(userEmail)
-              .active(true)
-              .riskLevel(ExternalCustomer.RiskLevel.LOW)
-              .build();
+          MockUtils.mockExternalCustomer(
+              UUID.randomUUID(),
+              "Integration Customer",
+              userEmail,
+              true,
+              ExternalCustomer.RiskLevel.LOW);
 
       when(externalCustomerService.getCustomerById(any(UUID.class)))
           .thenReturn(Optional.of(mockCustomer));
@@ -201,29 +211,34 @@ class CompleteIntegrationTest {
   @DisplayName("Complex Validation Tests with External Service Integration")
   class ComplexValidationTests {
 
+    @SneakyThrows
     @Test
     @DisplayName("Should validate user with external customer service integration")
-    void shouldValidateUserWithExternalCustomerServiceIntegration() throws Exception {
-      // Arrange - Configurar mock del servicio externo
+    void shouldValidateUserWithExternalCustomerServiceIntegration() {
+      // Arrange - Configurar mock del servicio externo usando MockUtils
       UUID customerId = UUID.randomUUID();
       ExternalCustomer mockCustomer =
-          ExternalCustomer.builder()
-              .customerId(customerId)
-              .name("Validated Customer")
-              .email("validated@santander.com")
-              .active(true)
-              .riskLevel(ExternalCustomer.RiskLevel.LOW)
-              .build();
+          MockUtils.mockExternalCustomer(
+              customerId,
+              "Validated Customer",
+              "validated@santander.com",
+              true,
+              ExternalCustomer.RiskLevel.LOW);
 
       when(externalCustomerService.getCustomerById(customerId))
           .thenReturn(Optional.of(mockCustomer));
 
-      // Configurar mock del servicio HTTP externo
-      Map<String, Object> customerData = new HashMap<>();
-      customerData.put("customerId", customerId.toString());
-      customerData.put("active", true);
-      customerData.put("riskLevel", "LOW");
-      customerData.put("creditScore", 750);
+      // Configurar mock del servicio HTTP externo usando Map.of
+      Map<String, Object> customerData =
+          Map.of(
+              "customerId",
+              customerId.toString(),
+              "active",
+              true,
+              "riskLevel",
+              "LOW",
+              "creditScore",
+              750);
 
       mockWebServer.enqueue(
           new MockResponse()
@@ -297,15 +312,14 @@ class CompleteIntegrationTest {
               .build();
       User savedUser = userRepository.save(user);
 
-      // Configurar mock del servicio externo
+      // Configurar mock del servicio externo usando MockUtils
       ExternalCustomer mockCustomer =
-          ExternalCustomer.builder()
-              .customerId(savedUser.getId())
-              .name("Cross Service Customer")
-              .email("crossservice@santander.com")
-              .active(true)
-              .riskLevel(ExternalCustomer.RiskLevel.MEDIUM)
-              .build();
+          MockUtils.mockExternalCustomer(
+              savedUser.getId(),
+              "Cross Service Customer",
+              "crossservice@santander.com",
+              true,
+              ExternalCustomer.RiskLevel.MEDIUM);
 
       when(externalCustomerService.getCustomerById(savedUser.getId()))
           .thenReturn(Optional.of(mockCustomer));
@@ -327,9 +341,10 @@ class CompleteIntegrationTest {
   @DisplayName("Error Handling Tests")
   class ErrorHandlingTests {
 
+    @SneakyThrows
     @Test
     @DisplayName("Should handle external service failure gracefully")
-    void shouldHandleExternalServiceFailureGracefully() throws Exception {
+    void shouldHandleExternalServiceFailureGracefully() {
       // Arrange - Configurar fallo del servicio externo
       mockWebServer.enqueue(new MockResponse().setResponseCode(500));
 

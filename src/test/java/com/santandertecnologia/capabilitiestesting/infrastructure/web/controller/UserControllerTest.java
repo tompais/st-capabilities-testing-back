@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 import com.santandertecnologia.capabilitiestesting.infrastructure.web.dto.CreateUserRequest;
 import com.santandertecnologia.capabilitiestesting.infrastructure.web.dto.UserResponse;
 import com.santandertecnologia.capabilitiestesting.infrastructure.web.service.UserWebService;
+import com.santandertecnologia.capabilitiestesting.utils.MockUtils;
 import io.restassured.http.ContentType;
 import io.restassured.module.mockmvc.RestAssuredMockMvc;
 import java.util.List;
@@ -28,37 +29,22 @@ import org.springframework.web.server.ResponseStatusException;
 
 /**
  * Tests de integración para UserController usando RestAssured MockMvc. Actualizado para la nueva
- * estructura con @ResponseStatus y UserWebService. Refactorizado para usar TestConstants.
+ * estructura con @ResponseStatus y UserWebService. Refactorizado para usar MockUtils.
  */
 @WebMvcTest(UserController.class)
 @ActiveProfiles("test") // Forzar uso del perfil test
 @DisplayName("UserController Tests")
 class UserControllerTest {
 
-  // Inicializar objetos de prueba a nivel de clase usando TestConstants
-  private final UserResponse testUserResponse =
-      UserResponse.builder()
-          .id(USER_ID)
-          .email("test@santander.com")
-          .name("Test User")
-          .phone("+34666123456")
-          .active(true)
-          .build();
-  private final CreateUserRequest createUserRequest =
-      CreateUserRequest.builder()
-          .username("testuser")
-          .email("test@santander.com")
-          .firstName("Test")
-          .lastName("User")
-          .phoneNumber("+34666123456")
-          .department("Testing")
-          .build();
+  // Inicializar objetos de prueba a nivel de clase usando MockUtils
+  private final UserResponse testUserResponse = MockUtils.mockUserResponse();
+  private final CreateUserRequest createUserRequest = MockUtils.mockCreateUserRequest();
   @Autowired private MockMvc mockMvc;
   @MockitoBean private UserWebService userWebService;
 
   @BeforeEach
   void setUp() {
-    // Solo configurar RestAssured MockMvc, los objetos ya están inicializados
+    // Configurar RestAssured MockMvc
     RestAssuredMockMvc.mockMvc(mockMvc);
   }
 
@@ -90,12 +76,8 @@ class UserControllerTest {
     @Test
     @DisplayName("Should return 400 for validation errors")
     void shouldReturn400ForValidationErrors() {
-      // Arrange
-      CreateUserRequest invalidRequest =
-          CreateUserRequest.builder()
-              .username("") // Invalid: empty username
-              .email("invalid-email") // Invalid: no @ symbol
-              .build();
+      // Arrange - Usar MockUtils con parámetros inválidos
+      CreateUserRequest invalidRequest = MockUtils.mockCreateUserRequest("", "invalid-email");
 
       // Act & Assert
       given()
@@ -173,15 +155,8 @@ class UserControllerTest {
     @Test
     @DisplayName("Should update status with 200 response")
     void shouldUpdateStatusWith200Response() {
-      // Arrange
-      UserResponse suspendedUser =
-          UserResponse.builder()
-              .id(USER_ID)
-              .email("test@santander.com")
-              .name("Test User")
-              .phone("+34666123456")
-              .active(false) // SUSPENDED = inactive
-              .build();
+      // Arrange - Usar MockUtils con estado inactivo
+      UserResponse suspendedUser = MockUtils.mockUserResponse(false);
 
       when(userWebService.updateUserStatus(USER_ID, "SUSPENDED")).thenReturn(suspendedUser);
 
@@ -221,7 +196,7 @@ class UserControllerTest {
     @Test
     @DisplayName("Should return active users list with 200 status")
     void shouldReturnActiveUsersListWith200Status() {
-      // Arrange
+      // Arrange - Usar MockUtils para crear la lista
       List<UserResponse> activeUsers = List.of(testUserResponse);
       when(userWebService.getActiveUsers()).thenReturn(activeUsers);
 

@@ -1,6 +1,6 @@
 package com.santandertecnologia.capabilitiestesting.infrastructure.web.service;
 
-import static com.santandertecnologia.capabilitiestesting.utils.TestConstants.USER_ID;
+import static com.santandertecnologia.capabilitiestesting.utils.TestConstants.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -10,6 +10,7 @@ import com.santandertecnologia.capabilitiestesting.domain.model.User;
 import com.santandertecnologia.capabilitiestesting.domain.port.in.UserUseCase;
 import com.santandertecnologia.capabilitiestesting.infrastructure.web.dto.CreateUserRequest;
 import com.santandertecnologia.capabilitiestesting.infrastructure.web.dto.UserResponse;
+import com.santandertecnologia.capabilitiestesting.utils.MockUtils;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -28,7 +29,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 /**
  * Tests parametrizados para UserWebService. Enfocado en testear la LÓGICA DE MAPEO y MANEJO DE
- * EXCEPCIONES. Refactorizado para usar TestConstants.
+ * EXCEPCIONES. Refactorizado para usar TestConstants y MockUtils.
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("UserWebService Tests")
@@ -43,7 +44,12 @@ class UserWebServiceTest {
     return Stream.of(
         Arguments.of("user1", "user1@santander.com", "John", "Doe", "+34666123456", "IT"),
         Arguments.of(
-            "admin", "admin@santander.com", "Admin", "User", "+34666789012", "Administration"),
+            USER_USERNAME_ADMIN,
+            USER_EMAIL_ADMIN,
+            USER_FIRST_NAME_ADMIN,
+            USER_LAST_NAME_ADMIN,
+            USER_PHONE_ADMIN,
+            USER_DEPARTMENT_ADMIN),
         Arguments.of("test_user", "test@santander.com", "Test", "Testing", null, null),
         Arguments.of(
             "manager-1",
@@ -58,7 +64,8 @@ class UserWebServiceTest {
   private static Stream<Arguments> provideExceptionMappingData() {
     return Stream.of(
         // Solo incluir excepciones que el UserWebService maneja específicamente
-        Arguments.of(IllegalArgumentException.class, "Invalid user data", HttpStatus.BAD_REQUEST)
+        // Enviar la excepción ya construida en lugar de usar reflection
+        Arguments.of(new IllegalArgumentException("Invalid user data"), HttpStatus.BAD_REQUEST)
         // RuntimeException y NullPointerException ya no se capturan en el servicio
         // Spring las manejará automáticamente en el controlador como 500
         );
@@ -78,16 +85,8 @@ class UserWebServiceTest {
     "Inactive, INACTIVE"
   })
   void shouldParseStatusStringsCorrectly(String statusString, User.Status expectedStatus) {
-    // Arrange
-    User user =
-        User.builder()
-            .id(USER_ID)
-            .username("testuser")
-            .email("test@santander.com")
-            .firstName("Test")
-            .lastName("User")
-            .status(expectedStatus)
-            .build();
+    // Arrange - Usar MockUtils con status específico
+    User user = MockUtils.mockUser(expectedStatus);
 
     when(userUseCase.updateUserStatus(USER_ID, expectedStatus)).thenReturn(Optional.of(user));
 
@@ -124,17 +123,12 @@ class UserWebServiceTest {
       String lastName,
       String phoneNumber,
       String department) {
-    // Arrange
+    // Arrange - Usar MockUtils para CreateUserRequest
     CreateUserRequest request =
-        CreateUserRequest.builder()
-            .username(username)
-            .email(email)
-            .firstName(firstName)
-            .lastName(lastName)
-            .phoneNumber(phoneNumber)
-            .department(department)
-            .build();
+        MockUtils.mockCreateUserRequest(
+            username, email, firstName, lastName, phoneNumber, department);
 
+    // Usar MockUtils para User con parámetros personalizados
     User expectedUser =
         User.builder()
             .id(UUID.randomUUID())
@@ -159,23 +153,13 @@ class UserWebServiceTest {
     assertThat(result.active()).isTrue();
   }
 
-  @ParameterizedTest(name = "Exception type {0} should map to HTTP status {1}")
+  @ParameterizedTest(name = "Exception {0} should map to HTTP status {1}")
   @DisplayName("Should correctly map IllegalArgumentException to BAD_REQUEST")
   @MethodSource("provideExceptionMappingData")
-  void shouldMapExceptionsToCorrectHttpStatus(
-      Class<? extends Exception> exceptionType,
-      String exceptionMessage,
-      HttpStatus expectedStatus) {
-    // Arrange
-    CreateUserRequest request =
-        CreateUserRequest.builder()
-            .username("testuser")
-            .email("test@santander.com")
-            .firstName("Test")
-            .lastName("User")
-            .build();
+  void shouldMapExceptionsToCorrectHttpStatus(Exception exception, HttpStatus expectedStatus) {
+    // Arrange - Usar MockUtils para CreateUserRequest
+    CreateUserRequest request = MockUtils.mockCreateUserRequest();
 
-    Exception exception = createException(exceptionType, exceptionMessage);
     when(userUseCase.createUser(any(User.class))).thenThrow(exception);
 
     // Act & Assert
@@ -208,8 +192,8 @@ class UserWebServiceTest {
               assertThat(rse.getStatusCode()).isEqualTo(expectedStatus);
             });
 
-    // Act & Assert - Test para updateUserStatus
-    assertThatThrownBy(() -> userWebService.updateUserStatus(USER_ID, "ACTIVE"))
+    // Act & Assert - Test para updateUserStatus usando constante
+    assertThatThrownBy(() -> userWebService.updateUserStatus(USER_ID, STATUS_STRING_ACTIVE))
         .isInstanceOf(ResponseStatusException.class)
         .satisfies(
             ex -> {
@@ -231,38 +215,19 @@ class UserWebServiceTest {
   @DisplayName("Should correctly map domain User to UserResponse")
   @CsvSource({"ACTIVE, true", "SUSPENDED, false", "INACTIVE, false"})
   void shouldMapDomainUserToResponse(User.Status status, boolean expectedActive) {
-    // Arrange
-    User user =
-        User.builder()
-            .id(USER_ID)
-            .username("testuser")
-            .email("test@santander.com")
-            .firstName("Test")
-            .lastName("User")
-            .phoneNumber("+34666123456")
-            .department("IT")
-            .status(status)
-            .build();
+    // Arrange - Usar MockUtils con status específico
+    User user = MockUtils.mockUser(status);
 
     when(userUseCase.getUserById(USER_ID)).thenReturn(Optional.of(user));
 
     // Act
     UserResponse result = userWebService.getUserById(USER_ID);
 
-    // Assert - Solo verificar campos disponibles en UserResponse
+    // Assert - Solo verificar campos disponibles en UserResponse usando constantes
     assertThat(result.id()).isEqualTo(USER_ID);
-    assertThat(result.email()).isEqualTo("test@santander.com");
-    assertThat(result.name()).isEqualTo("Test User"); // getFullName() mapeado a name
-    assertThat(result.phone()).isEqualTo("+34666123456");
+    assertThat(result.email()).isEqualTo(USER_EMAIL);
+    assertThat(result.name()).isEqualTo(USER_FULL_NAME); // getFullName() mapeado a name
+    assertThat(result.phone()).isEqualTo(USER_PHONE);
     assertThat(result.active()).isEqualTo(expectedActive);
-  }
-
-  /** Helper method para crear excepciones dinámicamente en tests parametrizados. */
-  private Exception createException(Class<? extends Exception> exceptionType, String message) {
-    try {
-      return exceptionType.getConstructor(String.class).newInstance(message);
-    } catch (Exception e) {
-      return new RuntimeException(message);
-    }
   }
 }

@@ -3,6 +3,8 @@ package com.santandertecnologia.capabilitiestesting.utils;
 import com.santandertecnologia.capabilitiestesting.domain.model.ExternalCustomer;
 import com.santandertecnologia.capabilitiestesting.domain.model.Product;
 import com.santandertecnologia.capabilitiestesting.domain.model.User;
+import com.santandertecnologia.capabilitiestesting.infrastructure.web.dto.CreateUserRequest;
+import com.santandertecnologia.capabilitiestesting.infrastructure.web.dto.UserResponse;
 import java.math.BigDecimal;
 import java.util.UUID;
 import lombok.NoArgsConstructor;
@@ -206,6 +208,130 @@ public final class MockUtils {
         .email(email)
         .active(active)
         .riskLevel(riskLevel)
+        .build();
+  }
+
+  /**
+   * Crea un UserResponse mock con valores por defecto.
+   *
+   * @return UserResponse con datos de prueba estándar
+   */
+  public static UserResponse mockUserResponse() {
+    return mockUserResponse(TestConstants.USER_ID);
+  }
+
+  /**
+   * Crea un UserResponse mock con un ID específico.
+   *
+   * @param id UUID del usuario
+   * @return UserResponse con el ID especificado y demás datos por defecto
+   */
+  public static UserResponse mockUserResponse(UUID id) {
+    return UserResponse.builder()
+        .id(id)
+        .email(TestConstants.USER_EMAIL)
+        .name(TestConstants.USER_FIRST_NAME + " " + TestConstants.USER_LAST_NAME)
+        .phone(TestConstants.USER_PHONE)
+        .active(true)
+        .build();
+  }
+
+  /**
+   * Crea un UserResponse mock con estado activo específico.
+   *
+   * @param active Si el usuario está activo o no
+   * @return UserResponse con el estado especificado y demás datos por defecto
+   */
+  public static UserResponse mockUserResponse(boolean active) {
+    return UserResponse.builder()
+        .id(TestConstants.USER_ID)
+        .email(TestConstants.USER_EMAIL)
+        .name(TestConstants.USER_FIRST_NAME + " " + TestConstants.USER_LAST_NAME)
+        .phone(TestConstants.USER_PHONE)
+        .active(active)
+        .build();
+  }
+
+  /**
+   * Crea un UserResponse mock completamente parametrizado.
+   *
+   * @param id UUID del usuario
+   * @param email Email del usuario
+   * @param name Nombre completo del usuario
+   * @param phone Teléfono del usuario
+   * @param active Si el usuario está activo
+   * @return UserResponse con todos los parámetros especificados
+   */
+  public static UserResponse mockUserResponse(
+      UUID id, String email, String name, String phone, boolean active) {
+    return UserResponse.builder()
+        .id(id)
+        .email(email)
+        .name(name)
+        .phone(phone)
+        .active(active)
+        .build();
+  }
+
+  /**
+   * Crea un CreateUserRequest mock con valores por defecto.
+   *
+   * @return CreateUserRequest con datos de prueba estándar
+   */
+  public static CreateUserRequest mockCreateUserRequest() {
+    return CreateUserRequest.builder()
+        .username(TestConstants.USER_USERNAME)
+        .email(TestConstants.USER_EMAIL)
+        .firstName(TestConstants.USER_FIRST_NAME)
+        .lastName(TestConstants.USER_LAST_NAME)
+        .phoneNumber(TestConstants.USER_PHONE)
+        .department(TestConstants.USER_DEPARTMENT)
+        .build();
+  }
+
+  /**
+   * Crea un CreateUserRequest mock con username y email específicos.
+   *
+   * @param username Nombre de usuario
+   * @param email Email del usuario
+   * @return CreateUserRequest con los parámetros especificados
+   */
+  public static CreateUserRequest mockCreateUserRequest(String username, String email) {
+    return CreateUserRequest.builder()
+        .username(username)
+        .email(email)
+        .firstName(TestConstants.USER_FIRST_NAME)
+        .lastName(TestConstants.USER_LAST_NAME)
+        .phoneNumber(TestConstants.USER_PHONE)
+        .department(TestConstants.USER_DEPARTMENT)
+        .build();
+  }
+
+  /**
+   * Crea un CreateUserRequest mock completamente parametrizado.
+   *
+   * @param username Nombre de usuario
+   * @param email Email del usuario
+   * @param firstName Nombre
+   * @param lastName Apellido
+   * @param phoneNumber Teléfono
+   * @param department Departamento
+   * @return CreateUserRequest con todos los parámetros especificados
+   */
+  public static CreateUserRequest mockCreateUserRequest(
+      String username,
+      String email,
+      String firstName,
+      String lastName,
+      String phoneNumber,
+      String department) {
+    return CreateUserRequest.builder()
+        .username(username)
+        .email(email)
+        .firstName(firstName)
+        .lastName(lastName)
+        .phoneNumber(phoneNumber)
+        .department(department)
         .build();
   }
 }
