@@ -32,7 +32,7 @@ import org.springframework.web.server.ResponseStatusException;
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("UserWebService Parameterized Tests")
-class UserWebServiceParameterizedTest {
+class UserWebServiceTest {
 
   @Mock private UserUseCase userUseCase;
 
