@@ -1,10 +1,20 @@
 package com.santandertecnologia.capabilitiestesting.infrastructure.integration;
 
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.springframework.boot.test.context.SpringBootTest.WebEnvironment.RANDOM_PORT;
+
 import io.github.tobi.laa.spring.boot.embedded.redis.standalone.EmbeddedRedisStandalone;
+import io.restassured.module.mockmvc.RestAssuredMockMvc;
+import lombok.AccessLevel;
+import lombok.NoArgsConstructor;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInstance;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.data.mongo.AutoConfigureDataMongo;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.web.context.WebApplicationContext;
 
 /**
  * Clase base abstracta para todos los tests de integración.
@@ -16,6 +26,7 @@ import org.springframework.test.context.ActiveProfiles;
  *   <li>Evitar que Flapdoodle MongoDB intente iniciar en el mismo puerto múltiples veces
  *   <li>Evitar que Redis embebido se cierre prematuramente entre tests
  *   <li>Mejorar el rendimiento al reutilizar el contexto entre tests
+ *   <li>Configurar RestAssured MockMvc una sola vez para todos los tests
  * </ul>
  *
  * <p><strong>IMPORTANTE:</strong> NO usar {@code @DirtiesContext} en las subclases, ya que esto
@@ -57,17 +68,34 @@ import org.springframework.test.context.ActiveProfiles;
  * </pre>
  */
 @AutoConfigureDataMongo
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(webEnvironment = RANDOM_PORT)
 @ActiveProfiles("test")
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@TestInstance(PER_CLASS)
 @EmbeddedRedisStandalone
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public abstract class BaseIntegrationTest {
 
   /**
-   * Constructor protegido para evitar instanciación directa. Solo las subclases pueden heredar de
-   * esta clase.
+   * Configuración inicial ejecutada UNA SOLA VEZ antes de todos los tests de la clase. Configura
+   * RestAssured MockMvc con el contexto de Spring para realizar llamadas HTTP simuladas.
+   *
+   * @param webApplicationContext El contexto de Spring Web inyectado automáticamente
    */
-  protected BaseIntegrationTest() {
-    // Constructor vacío intencional
+  @BeforeAll
+  void setUpRestAssured(@Autowired final WebApplicationContext webApplicationContext) {
+    // Configurar RestAssured MockMvc una sola vez para toda la clase de test
+    // Esto permite hacer llamadas HTTP simuladas sin levantar un servidor real
+    RestAssuredMockMvc.webAppContextSetup(webApplicationContext);
+  }
+
+  /**
+   * Limpieza ejecutada UNA SOLA VEZ después de todos los tests de la clase. Resetea la
+   * configuración de RestAssured MockMvc para evitar interferencias entre clases de test.
+   */
+  @AfterAll
+  void tearDownRestAssured() {
+    // Reset de RestAssured para limpiar toda la configuración
+    // Esto asegura que cada clase de test comience con un estado limpio
+    RestAssuredMockMvc.reset();
   }
 }

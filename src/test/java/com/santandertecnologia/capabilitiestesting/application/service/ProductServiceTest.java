@@ -2,7 +2,6 @@ package com.santandertecnologia.capabilitiestesting.application.service;
 
 import static com.santandertecnologia.capabilitiestesting.utils.TestConstants.PRODUCT_ID;
 import static com.santandertecnologia.capabilitiestesting.utils.TestConstants.PRODUCT_ID_2;
-import static com.santandertecnologia.capabilitiestesting.utils.TestConstants.PRODUCT_SKU;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -40,7 +39,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("ProductService Unit Tests")
 class ProductServiceTest {
 
-  private final Product testProduct = MockUtils.mockProduct();
+  private final Product testProduct = MockUtils.mockProduct(PRODUCT_ID);
   @Mock private ProductRepository productRepository;
   @Mock private CacheService cacheService;
   @InjectMocks private ProductService productService;
@@ -53,7 +52,7 @@ class ProductServiceTest {
     @DisplayName("Should create product successfully with valid data")
     void shouldCreateProductSuccessfullyWithValidData() {
       // Arrange
-      when(productRepository.existsBySku(PRODUCT_SKU)).thenReturn(false);
+      when(productRepository.existsBySku(any())).thenReturn(false);
       when(productRepository.save(any(Product.class))).thenReturn(testProduct);
 
       // Act
@@ -65,7 +64,7 @@ class ProductServiceTest {
       assertThat(result.isActive()).isTrue();
       assertThat(result.getStock()).isEqualTo(10);
 
-      verify(productRepository).existsBySku(PRODUCT_SKU);
+      verify(productRepository).existsBySku(any());
       verify(productRepository).save(any(Product.class));
       verify(cacheService).put(any(String.class), any(Product.class), anyLong());
     }
@@ -74,14 +73,14 @@ class ProductServiceTest {
     @DisplayName("Should throw exception when SKU already exists")
     void shouldThrowExceptionWhenSkuAlreadyExists() {
       // Arrange
-      when(productRepository.existsBySku(PRODUCT_SKU)).thenReturn(true);
+      when(productRepository.existsBySku(any())).thenReturn(true);
 
       // Act & Assert
       assertThatThrownBy(() -> productService.createProduct(testProduct))
           .isInstanceOf(IllegalArgumentException.class)
           .hasMessageContaining("SKU already exists");
 
-      verify(productRepository).existsBySku(PRODUCT_SKU);
+      verify(productRepository).existsBySku(any());
       verify(productRepository, never()).save(any(Product.class));
       verify(cacheService, never()).put(any(), any(), anyLong());
     }
@@ -92,7 +91,7 @@ class ProductServiceTest {
     void shouldCreateProductWithAllValidCategories(final Product.Category category) {
       // Arrange
       final Product productWithCategory = MockUtils.mockProduct(category);
-      when(productRepository.existsBySku(PRODUCT_SKU)).thenReturn(false);
+      when(productRepository.existsBySku(any())).thenReturn(false);
       when(productRepository.save(any(Product.class))).thenReturn(productWithCategory);
 
       // Act
@@ -169,7 +168,7 @@ class ProductServiceTest {
     void shouldGetProductsByCategory() {
       // Arrange
       final Product electronics1 = MockUtils.mockProduct(Product.Category.ELECTRONICS);
-      final Product electronics2 = MockUtils.mockProduct(PRODUCT_ID_2);
+      final Product electronics2 = MockUtils.mockProduct(Product.Category.ELECTRONICS);
       final List<Product> expectedProducts = Arrays.asList(electronics1, electronics2);
 
       when(productRepository.findByCategory(Product.Category.ELECTRONICS))
@@ -180,8 +179,7 @@ class ProductServiceTest {
           productService.getProductsByCategory(Product.Category.ELECTRONICS);
 
       // Assert
-      assertThat(result).hasSize(2);
-      assertThat(result).allMatch(p -> p.getCategory() == Product.Category.ELECTRONICS);
+      assertThat(result).hasSize(2).allMatch(p -> p.getCategory() == Product.Category.ELECTRONICS);
 
       verify(productRepository).findByCategory(Product.Category.ELECTRONICS);
     }
@@ -294,8 +292,8 @@ class ProductServiceTest {
     @DisplayName("Should get all active products")
     void shouldGetAllActiveProducts() {
       // Arrange
-      final Product activeProduct1 = MockUtils.mockProductWithUniqueId(true);
-      final Product activeProduct2 = MockUtils.mockProductWithUniqueId(true);
+      final Product activeProduct1 = MockUtils.mockProduct(true);
+      final Product activeProduct2 = MockUtils.mockProduct(true);
       final List<Product> expectedProducts = Arrays.asList(activeProduct1, activeProduct2);
 
       when(productRepository.findActiveProducts()).thenReturn(expectedProducts);
@@ -336,7 +334,7 @@ class ProductServiceTest {
     void shouldCreateProductsWithDifferentPrices(final double price) {
       // Arrange
       final Product productWithPrice =
-          MockUtils.mockProductWithUniqueId(
+          MockUtils.mockProduct(
               "Test Product",
               "Test Description",
               BigDecimal.valueOf(price),

@@ -19,6 +19,7 @@ import lombok.NoArgsConstructor;
 public final class MockUtils {
 
   private static final String SKU_PREFIX = "SKU-";
+  private static final String HYPHEN = "-";
 
   /**
    * Crea un User mock con valores por defecto.
@@ -49,15 +50,16 @@ public final class MockUtils {
   }
 
   /**
-   * Crea un User mock con status específico.
+   * Crea un User mock con status específico y ID único.
    *
    * @param status Status del usuario
-   * @return User con el status especificado y demás datos por defecto
+   * @return User con el status especificado, ID único y demás datos por defecto
    */
   public static User mockUser(final User.Status status) {
+    final UUID uniqueId = UUID.randomUUID();
     return User.builder()
-        .id(TestConstants.USER_ID)
-        .username(TestConstants.USER_USERNAME)
+        .id(uniqueId)
+        .username(TestConstants.USER_USERNAME + HYPHEN + uniqueId.toString().substring(0, 8))
         .email(TestConstants.USER_EMAIL)
         .firstName(TestConstants.USER_FIRST_NAME)
         .lastName(TestConstants.USER_LAST_NAME)
@@ -89,58 +91,69 @@ public final class MockUtils {
   }
 
   /**
-   * Crea un Product mock con valores por defecto.
+   * Crea un User mock con parámetros personalizados incluyendo status.
    *
-   * @return Product con datos de prueba estándar
+   * @param id UUID del usuario
+   * @param username nombre de usuario
+   * @param email email del usuario
+   * @param status Status del usuario
+   * @return User con los parámetros especificados
+   */
+  public static User mockUser(
+      final UUID id, final String username, final String email, final User.Status status) {
+    return User.builder()
+        .id(id)
+        .username(username)
+        .email(email)
+        .firstName(TestConstants.USER_FIRST_NAME)
+        .lastName(TestConstants.USER_LAST_NAME)
+        .phoneNumber(TestConstants.USER_PHONE)
+        .department(TestConstants.USER_DEPARTMENT)
+        .status(status)
+        .build();
+  }
+
+  /**
+   * Crea un User mock completamente parametrizado.
+   *
+   * @param id UUID del usuario
+   * @param username nombre de usuario
+   * @param email email del usuario
+   * @param firstName Nombre
+   * @param lastName Apellido
+   * @param phoneNumber Teléfono
+   * @param department Departamento
+   * @param status Status del usuario
+   * @return User con todos los parámetros especificados
+   */
+  public static User mockUser(
+      final UUID id,
+      final String username,
+      final String email,
+      final String firstName,
+      final String lastName,
+      final String phoneNumber,
+      final String department,
+      final User.Status status) {
+    return User.builder()
+        .id(id)
+        .username(username)
+        .email(email)
+        .firstName(firstName)
+        .lastName(lastName)
+        .phoneNumber(phoneNumber)
+        .department(department)
+        .status(status)
+        .build();
+  }
+
+  /**
+   * Crea un Product mock con valores por defecto y SKU único. TODOS los productos creados tendrán
+   * SKU único para evitar conflictos en tests.
+   *
+   * @return Product con datos de prueba estándar, ID y SKU únicos
    */
   public static Product mockProduct() {
-    return mockProduct(TestConstants.PRODUCT_ID);
-  }
-
-  /**
-   * Crea un Product mock con un ID específico.
-   *
-   * @param id UUID del producto
-   * @return Product con el ID especificado y demás datos por defecto
-   */
-  public static Product mockProduct(final UUID id) {
-    return Product.builder()
-        .id(id)
-        .name(TestConstants.PRODUCT_NAME)
-        .description(TestConstants.PRODUCT_DESCRIPTION)
-        .sku(TestConstants.PRODUCT_SKU)
-        .price(BigDecimal.valueOf(99.99))
-        .stock(10)
-        .category(Product.Category.ELECTRONICS)
-        .active(true)
-        .build();
-  }
-
-  /**
-   * Crea un Product mock con categoría específica.
-   *
-   * @param category Categoría del producto
-   * @return Product con la categoría especificada y demás datos por defecto
-   */
-  public static Product mockProduct(final Product.Category category) {
-    return Product.builder()
-        .id(TestConstants.PRODUCT_ID)
-        .name(TestConstants.PRODUCT_NAME)
-        .description(TestConstants.PRODUCT_DESCRIPTION)
-        .sku(TestConstants.PRODUCT_SKU)
-        .price(BigDecimal.valueOf(99.99))
-        .stock(10)
-        .category(category)
-        .active(true)
-        .build();
-  }
-
-  /**
-   * Crea un Product mock con ID y SKU únicos generados automáticamente.
-   *
-   * @return Product con ID y SKU únicos y demás datos por defecto
-   */
-  public static Product mockProductWithUniqueId() {
     final UUID uniqueId = UUID.randomUUID();
     return Product.builder()
         .id(uniqueId)
@@ -155,18 +168,42 @@ public final class MockUtils {
   }
 
   /**
-   * Crea un Product mock con categoría específica, ID y SKU únicos.
+   * Crea un Product mock con un ID específico. Útil cuando necesitas controlar el ID del producto
+   * en tests.
+   *
+   * @param id UUID del producto
+   * @return Product con el ID especificado y demás datos por defecto
+   */
+  public static Product mockProduct(final UUID id) {
+    return Product.builder()
+        .id(id)
+        .name(TestConstants.PRODUCT_NAME)
+        .description(TestConstants.PRODUCT_DESCRIPTION)
+        .sku(SKU_PREFIX + id.toString().substring(0, 8).toUpperCase())
+        .price(BigDecimal.valueOf(99.99))
+        .stock(10)
+        .category(Product.Category.ELECTRONICS)
+        .active(true)
+        .build();
+  }
+
+  /**
+   * Crea un Product mock con categoría específica y SKU único.
    *
    * @param category Categoría del producto
    * @return Product con la categoría especificada, ID y SKU únicos
    */
-  public static Product mockProductWithUniqueId(final Product.Category category) {
+  public static Product mockProduct(final Product.Category category) {
     final UUID uniqueId = UUID.randomUUID();
     return Product.builder()
         .id(uniqueId)
         .name(TestConstants.PRODUCT_NAME)
         .description(TestConstants.PRODUCT_DESCRIPTION)
-        .sku(SKU_PREFIX + category.name() + "-" + uniqueId.toString().substring(0, 8).toUpperCase())
+        .sku(
+            SKU_PREFIX
+                + category.name()
+                + HYPHEN
+                + uniqueId.toString().substring(0, 8).toUpperCase())
         .price(BigDecimal.valueOf(99.99))
         .stock(10)
         .category(category)
@@ -175,12 +212,12 @@ public final class MockUtils {
   }
 
   /**
-   * Crea un Product mock con estado activo específico, ID y SKU únicos.
+   * Crea un Product mock con estado activo específico y SKU único.
    *
    * @param active Si el producto está activo o no
    * @return Product con el estado especificado, ID y SKU únicos
    */
-  public static Product mockProductWithUniqueId(final boolean active) {
+  public static Product mockProduct(final boolean active) {
     final UUID uniqueId = UUID.randomUUID();
     return Product.builder()
         .id(uniqueId)
@@ -205,7 +242,7 @@ public final class MockUtils {
    * @param active Si el producto está activo
    * @return Product con todos los parámetros especificados y ID/SKU únicos
    */
-  public static Product mockProductWithUniqueId(
+  public static Product mockProduct(
       final String name,
       final String description,
       final BigDecimal price,
@@ -217,7 +254,11 @@ public final class MockUtils {
         .id(uniqueId)
         .name(name)
         .description(description)
-        .sku(SKU_PREFIX + category.name() + "-" + uniqueId.toString().substring(0, 8).toUpperCase())
+        .sku(
+            SKU_PREFIX
+                + category.name()
+                + HYPHEN
+                + uniqueId.toString().substring(0, 8).toUpperCase())
         .price(price)
         .stock(stock)
         .category(category)

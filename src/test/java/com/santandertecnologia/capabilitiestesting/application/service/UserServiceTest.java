@@ -52,7 +52,7 @@ class UserServiceTest {
       when(userRepository.save(any(User.class))).thenReturn(testUser);
 
       // Act
-      User result = userService.createUser(testUser);
+      final User result = userService.createUser(testUser);
 
       // Assert
       assertThat(result).isNotNull();
@@ -67,7 +67,7 @@ class UserServiceTest {
     @DisplayName("Should throw exception when user data is invalid")
     void shouldThrowExceptionWhenUserDataIsInvalid() {
       // Arrange
-      User invalidUser = MockUtils.mockUser(USER_ID, "", "invalid-email");
+      final User invalidUser = MockUtils.mockUser(USER_ID, "", "invalid-email");
 
       when(userRepository.save(any(User.class)))
           .thenThrow(new IllegalArgumentException("Invalid user data"));
@@ -109,7 +109,7 @@ class UserServiceTest {
           .thenReturn(Optional.of(testUser));
 
       // Act
-      Optional<User> result = userService.getUserById(USER_ID);
+      final Optional<User> result = userService.getUserById(USER_ID);
 
       // Assert
       assertThat(result).isPresent().contains(testUser);
@@ -127,7 +127,7 @@ class UserServiceTest {
       when(userRepository.findById(USER_ID)).thenReturn(Optional.of(testUser));
 
       // Act
-      Optional<User> result = userService.getUserById(USER_ID);
+      final Optional<User> result = userService.getUserById(USER_ID);
 
       // Assert
       assertThat(result).isPresent().contains(testUser);
@@ -146,7 +146,7 @@ class UserServiceTest {
       when(userRepository.findById(USER_ID)).thenReturn(Optional.empty());
 
       // Act
-      Optional<User> result = userService.getUserById(USER_ID);
+      final Optional<User> result = userService.getUserById(USER_ID);
 
       // Assert
       assertThat(result).isEmpty();
@@ -182,7 +182,7 @@ class UserServiceTest {
     @DisplayName("Should use different cache keys for different users")
     void shouldUseDifferentCacheKeysForDifferentUsers() {
       // Arrange
-      User user2 = MockUtils.mockUser(USER_ID_2);
+      final User user2 = MockUtils.mockUser(USER_ID_2);
       when(cacheService.get(CACHE_KEY_USER_PREFIX + USER_ID, User.class))
           .thenReturn(Optional.of(testUser));
       when(cacheService.get(CACHE_KEY_USER_PREFIX + USER_ID_2, User.class))
@@ -206,11 +206,11 @@ class UserServiceTest {
     @DisplayName("Should return only active users")
     void shouldReturnOnlyActiveUsers() {
       // Arrange
-      List<User> activeUsers = List.of(testUser);
+      final List<User> activeUsers = List.of(testUser);
       when(userRepository.findByStatus(User.Status.ACTIVE)).thenReturn(activeUsers);
 
       // Act
-      List<User> result = userService.getActiveUsers();
+      final List<User> result = userService.getActiveUsers();
 
       // Assert
       assertThat(result).hasSize(1);
@@ -228,13 +228,19 @@ class UserServiceTest {
     @Test
     @DisplayName("Should update user status and update cache")
     void shouldUpdateUserStatusAndUpdateCache() {
-      // Arrange
-      User suspendedUser = MockUtils.mockUser(User.Status.SUSPENDED);
+      // Arrange - Usar MockUtils con status personalizado
       when(userRepository.findById(USER_ID)).thenReturn(Optional.of(testUser));
-      when(userRepository.save(any(User.class))).thenReturn(suspendedUser);
+      when(userRepository.save(any(User.class)))
+          .thenAnswer(
+              invocation -> {
+                final User user = invocation.getArgument(0);
+                // Usar MockUtils para crear el usuario con status SUSPENDED
+                return MockUtils.mockUser(
+                    user.getId(), user.getUsername(), user.getEmail(), User.Status.SUSPENDED);
+              });
 
       // Act
-      Optional<User> result = userService.updateUserStatus(USER_ID, User.Status.SUSPENDED);
+      final Optional<User> result = userService.updateUserStatus(USER_ID, User.Status.SUSPENDED);
 
       // Assert
       assertThat(result).isPresent();
@@ -254,7 +260,7 @@ class UserServiceTest {
       when(userRepository.findById(USER_ID)).thenReturn(Optional.empty());
 
       // Act
-      Optional<User> result = userService.updateUserStatus(USER_ID, User.Status.INACTIVE);
+      final Optional<User> result = userService.updateUserStatus(USER_ID, User.Status.INACTIVE);
 
       // Assert
       assertThat(result).isEmpty();
@@ -277,7 +283,7 @@ class UserServiceTest {
       when(userRepository.findById(USER_ID)).thenReturn(Optional.of(testUser));
 
       // Act
-      boolean result = userService.deleteUser(USER_ID);
+      final boolean result = userService.deleteUser(USER_ID);
 
       // Assert
       assertThat(result).isTrue();
@@ -294,7 +300,7 @@ class UserServiceTest {
       when(userRepository.findById(USER_ID)).thenReturn(Optional.empty());
 
       // Act
-      boolean result = userService.deleteUser(USER_ID);
+      final boolean result = userService.deleteUser(USER_ID);
 
       // Assert
       assertThat(result).isFalse();
@@ -313,11 +319,11 @@ class UserServiceTest {
     @DisplayName("Should validate user data correctly")
     void shouldValidateUserDataCorrectly() {
       // Arrange
-      User validUser = MockUtils.mockUser(USER_ID, "validuser", "valid@santander.com");
+      final User validUser = MockUtils.mockUser(USER_ID, "validuser", "valid@santander.com");
       when(userRepository.save(any(User.class))).thenReturn(validUser);
 
       // Act
-      User result = userService.createUser(validUser);
+      final User result = userService.createUser(validUser);
 
       // Assert
       assertThat(result).isNotNull();
@@ -329,7 +335,7 @@ class UserServiceTest {
     @DisplayName("Should handle user with full name correctly")
     void shouldHandleUserWithFullNameCorrectly() {
       // Act
-      String fullName = testUser.getFullName();
+      final String fullName = testUser.getFullName();
 
       // Assert
       assertThat(fullName).isEqualTo("Test User");

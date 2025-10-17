@@ -1,15 +1,19 @@
 package com.santandertecnologia.capabilitiestesting.infrastructure.web.service;
 
 import static com.santandertecnologia.capabilitiestesting.utils.TestConstants.STATUS_STRING_ACTIVE;
+import static com.santandertecnologia.capabilitiestesting.utils.TestConstants.USER_DEPARTMENT;
 import static com.santandertecnologia.capabilitiestesting.utils.TestConstants.USER_DEPARTMENT_ADMIN;
 import static com.santandertecnologia.capabilitiestesting.utils.TestConstants.USER_EMAIL;
 import static com.santandertecnologia.capabilitiestesting.utils.TestConstants.USER_EMAIL_ADMIN;
+import static com.santandertecnologia.capabilitiestesting.utils.TestConstants.USER_FIRST_NAME;
 import static com.santandertecnologia.capabilitiestesting.utils.TestConstants.USER_FIRST_NAME_ADMIN;
 import static com.santandertecnologia.capabilitiestesting.utils.TestConstants.USER_FULL_NAME;
 import static com.santandertecnologia.capabilitiestesting.utils.TestConstants.USER_ID;
+import static com.santandertecnologia.capabilitiestesting.utils.TestConstants.USER_LAST_NAME;
 import static com.santandertecnologia.capabilitiestesting.utils.TestConstants.USER_LAST_NAME_ADMIN;
 import static com.santandertecnologia.capabilitiestesting.utils.TestConstants.USER_PHONE;
 import static com.santandertecnologia.capabilitiestesting.utils.TestConstants.USER_PHONE_ADMIN;
+import static com.santandertecnologia.capabilitiestesting.utils.TestConstants.USER_USERNAME;
 import static com.santandertecnologia.capabilitiestesting.utils.TestConstants.USER_USERNAME_ADMIN;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -224,8 +228,18 @@ class UserWebServiceTest {
   @DisplayName("Should correctly map domain User to UserResponse")
   @CsvSource({"ACTIVE, true", "SUSPENDED, false", "INACTIVE, false"})
   void shouldMapDomainUserToResponse(final User.Status status, final boolean expectedActive) {
-    // Arrange - Usar MockUtils con status específico
-    final User user = MockUtils.mockUser(status);
+    // Arrange - Crear usuario con USER_ID específico y el status deseado
+    final User user =
+        User.builder()
+            .id(USER_ID)
+            .username(USER_USERNAME)
+            .email(USER_EMAIL)
+            .firstName(USER_FIRST_NAME)
+            .lastName(USER_LAST_NAME)
+            .phoneNumber(USER_PHONE)
+            .department(USER_DEPARTMENT)
+            .status(status)
+            .build();
 
     when(userUseCase.getUserById(USER_ID)).thenReturn(Optional.of(user));
 

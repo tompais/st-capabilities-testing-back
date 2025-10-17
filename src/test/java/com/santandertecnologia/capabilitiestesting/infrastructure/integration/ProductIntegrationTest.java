@@ -11,56 +11,28 @@ import com.santandertecnologia.capabilitiestesting.domain.port.out.ProductReposi
 import com.santandertecnologia.capabilitiestesting.infrastructure.web.dto.CreateProductRequest;
 import com.santandertecnologia.capabilitiestesting.utils.MockUtils;
 import io.restassured.http.ContentType;
-import io.restassured.module.mockmvc.RestAssuredMockMvc;
 import java.math.BigDecimal;
 import java.util.UUID;
+import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cache.CacheManager;
-import org.springframework.web.context.WebApplicationContext;
 
 @DisplayName("Product Integration Tests - MongoDB with Flapdoodle")
+@RequiredArgsConstructor(onConstructor_ = @Autowired)
 class ProductIntegrationTest extends BaseIntegrationTest {
 
-  @Autowired private ProductRepository productRepository;
-
-  @Autowired private ObjectMapper objectMapper;
-
-  @Autowired private CacheManager cacheManager;
-
-  @BeforeAll
-  void setUpClass(@Autowired final WebApplicationContext context) {
-    // Configurar RestAssured MockMvc una sola vez para toda la clase de test
-    RestAssuredMockMvc.webAppContextSetup(context);
-  }
-
-  @AfterAll
-  void tearDownClass() {
-    // Reset de RestAssured para limpiar toda la configuración
-    RestAssuredMockMvc.reset();
-  }
+  private final ProductRepository productRepository;
+  private final ObjectMapper objectMapper;
 
   @BeforeEach
   void setUp() {
     // Limpiar MongoDB antes de cada test para asegurar aislamiento
     // IMPORTANTE: Solo limpiamos los DATOS, no destruimos el contexto de Spring
     productRepository.deleteAll();
-
-    // Limpiar Redis cache manualmente para evitar interferencias entre tests
-    if (cacheManager != null) {
-      cacheManager.getCacheNames().forEach(cacheName -> {
-        final var cache = cacheManager.getCache(cacheName);
-        if (cache != null) {
-          cache.clear();
-        }
-      });
-    }
   }
 
   @Nested
@@ -160,9 +132,9 @@ class ProductIntegrationTest extends BaseIntegrationTest {
     @DisplayName("Should search products by category in MongoDB")
     void shouldSearchProductsByCategoryInMongoDB() {
       // Arrange - Crear productos de diferentes categorías usando MockUtils
-      final Product electronics1 = MockUtils.mockProductWithUniqueId(Product.Category.ELECTRONICS);
-      final Product electronics2 = MockUtils.mockProductWithUniqueId(Product.Category.ELECTRONICS);
-      final Product book = MockUtils.mockProductWithUniqueId(Product.Category.BOOKS);
+      final Product electronics1 = MockUtils.mockProduct(Product.Category.ELECTRONICS);
+      final Product electronics2 = MockUtils.mockProduct(Product.Category.ELECTRONICS);
+      final Product book = MockUtils.mockProduct(Product.Category.BOOKS);
 
       productRepository.save(electronics1);
       productRepository.save(electronics2);
@@ -185,9 +157,9 @@ class ProductIntegrationTest extends BaseIntegrationTest {
     @DisplayName("Should get all active products from MongoDB")
     void shouldGetAllActiveProductsFromMongoDB() {
       // Arrange - Crear productos activos e inactivos usando MockUtils
-      final Product activeProduct1 = MockUtils.mockProductWithUniqueId(true);
-      final Product activeProduct2 = MockUtils.mockProductWithUniqueId(true);
-      final Product inactiveProduct = MockUtils.mockProductWithUniqueId(false);
+      final Product activeProduct1 = MockUtils.mockProduct(true);
+      final Product activeProduct2 = MockUtils.mockProduct(true);
+      final Product inactiveProduct = MockUtils.mockProduct(false);
 
       productRepository.save(activeProduct1);
       productRepository.save(activeProduct2);
@@ -366,8 +338,8 @@ class ProductIntegrationTest extends BaseIntegrationTest {
     @DisplayName("Should correctly determine product availability")
     void shouldCorrectlyDetermineProductAvailability() {
       // Arrange - Crear productos con diferentes estados de stock
-      final Product availableProduct = MockUtils.mockProductWithUniqueId(true);
-      final Product unavailableProduct = MockUtils.mockProductWithUniqueId(false);
+      final Product availableProduct = MockUtils.mockProduct(true);
+      final Product unavailableProduct = MockUtils.mockProduct(false);
 
       final Product savedAvailable = productRepository.save(availableProduct);
       final Product savedUnavailable = productRepository.save(unavailableProduct);
@@ -398,7 +370,7 @@ class ProductIntegrationTest extends BaseIntegrationTest {
     @DisplayName("Should verify data persists in MongoDB between operations")
     void shouldVerifyDataPersistsInMongoDBBetweenOperations() {
       // Arrange - Crear y guardar un producto
-      final Product product = MockUtils.mockProductWithUniqueId();
+      final Product product = MockUtils.mockProduct();
       final Product savedProduct = productRepository.save(product);
 
       // Act - Recuperar el producto directamente del repositorio
@@ -416,9 +388,9 @@ class ProductIntegrationTest extends BaseIntegrationTest {
     @DisplayName("Should handle multiple products in MongoDB")
     void shouldHandleMultipleProductsInMongoDB() {
       // Arrange - Crear múltiples productos
-      final Product product1 = MockUtils.mockProductWithUniqueId();
-      final Product product2 = MockUtils.mockProductWithUniqueId();
-      final Product product3 = MockUtils.mockProductWithUniqueId();
+      final Product product1 = MockUtils.mockProduct();
+      final Product product2 = MockUtils.mockProduct();
+      final Product product3 = MockUtils.mockProduct();
 
       // Act - Guardar todos los productos
       productRepository.save(product1);
@@ -431,4 +403,3 @@ class ProductIntegrationTest extends BaseIntegrationTest {
     }
   }
 }
-

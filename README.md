@@ -119,7 +119,7 @@ class UserServiceTest {
         when(userRepository.save(any(User.class))).thenReturn(testUser);
 
         // Act
-        User result = userService.createUser(testUser);
+        final User result = userService.createUser(testUser);
 
         // Assert
         assertThat(result.getId()).isEqualTo(USER_ID);
@@ -174,542 +174,281 @@ class UserControllerTest {
 }
 ```
 
-### **3. Tests de Integración E2E con H2 + Redis** (`@SpringBootTest`)
+### **3. Tests de Integración Completos** 🎯
 
-```java
+**Arquitectura de Tests de Integración:**
 
-@SpringBootTest
-@ActiveProfiles("test")
-@EmbeddedRedisStandalone
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class UserIntegrationTest {
+```
+BaseIntegrationTest (clase abstracta)
+├── @SpringBootTest(webEnvironment = RANDOM_PORT)
+├── @AutoConfigureDataMongo (Flapdoodle MongoDB)
+├── @EmbeddedRedisStandalone (Redis embebido)
+├── @TestInstance(PER_CLASS) (comparte contexto)
+├── Configura RestAssured MockMvc automáticamente
+└── NO usa @DirtiesContext (evita problemas de puerto)
 
-    private MockWebServer mockWebServer;
+ProductIntegrationTest extends BaseIntegrationTest
+└── Tests de MongoDB con Flapdoodle
+    ├── CRUD completo de productos
+    ├── Búsquedas por categoría
+    ├── Gestión de stock
+    └── Validaciones
 
-    @SneakyThrows
-    @BeforeAll
-    void setUpAll() {
-        // Configurar una sola vez para todos los tests
-        mockWebServer = new MockWebServer();
-        mockWebServer.start(MOCK_SERVER_PORT);
-        RestAssuredMockMvc.webAppContextSetup(webApplicationContext);
-    }
-
-    @SneakyThrows
-    @AfterAll
-    void tearDownAll() {
-        if (mockWebServer != null) {
-            mockWebServer.shutdown();
-        }
-        RestAssuredMockMvc.reset();
-    }
-
-    @SneakyThrows
-    @Test
-    void shouldCompleteFullUserLifecycle() {
-        // Crear → Cachear → Validar Externo → Actualizar → Eliminar
-        ExternalCustomer mockCustomer = MockUtils.mockExternalCustomer(
-                customerId, "Customer", email, true, RiskLevel.LOW
-        );
-
-        // Usar Map.of en lugar de HashMap
-        Map<String, Object> data = Map.of(
-                "customerId", customerId.toString(),
-                "active", true,
-                "riskLevel", "LOW"
-        );
-
-        mockWebServer.enqueue(new MockResponse().setBody(json));
-        // ... resto del test
-    }
-}
+UserIntegrationTest extends BaseIntegrationTest
+├── MockWebServer en puerto 8081 (configurable)
+└── Tests completos con múltiples tecnologías
+    ├── H2 Database (JPA/SQL)
+    ├── Redis Cache (embebido)
+    ├── MockWebServer (servicios externos)
+    └── RestAssured MockMvc (API REST)
 ```
 
-### **4. Tests de Integración con MongoDB Flapdoodle** (`@SpringBootTest`)
+**Características Clave:**
+
+1. **Puerto MockWebServer Configurable**: Lee del archivo `application-test.yml` (puerto 8081 por defecto)
+2. **Sin @MockitoBean**: Usa solo MockWebServer para mockear servicios externos HTTP reales
+3. **SKU Únicos Automáticos**: Todos los productos en MockUtils generan SKU único por defecto
+4. **Inyección por Constructor**: Usa `@RequiredArgsConstructor` con campos `final` para mejor testabilidad
+5. **Contexto Compartido**: Un solo contexto de Spring para todos los tests (más rápido)
+
+**Ejemplo de Test de Integración Completo:**
 
 ```java
-@SpringBootTest
-@ActiveProfiles("test")
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
-@DisplayName("Product Integration Tests - MongoDB with Flapdoodle")
-class ProductIntegrationTest {
-    
-    @Autowired private ProductRepository productRepository;
-    
-    @BeforeAll
-    void setUpAll() {
-        RestAssuredMockMvc.webAppContextSetup(webApplicationContext);
-    }
-    
-    @AfterAll
-    void tearDownAll() {
-        RestAssuredMockMvc.reset();
-    }
-    
-    @SneakyThrows
-    @Test
-    @DisplayName("Should create product and persist in MongoDB")
-    void shouldCreateProductAndPersistInMongoDB() {
-        // Arrange - Usar MockUtils
-        CreateProductRequest request = MockUtils.mockCreateProductRequest(
-            "Laptop Gaming",
-            "High performance gaming laptop",
-            BigDecimal.valueOf(1299.99),
-            Product.Category.ELECTRONICS,
-            15,
-            "LAP-GAM-001"
-        );
-        
-        // Act - Crear producto via API REST
-        given()
-            .contentType(ContentType.JSON)
-            .body(objectMapper.writeValueAsString(request))
+@DisplayName("User Integration Tests - All Technologies with Embedded DBs")
+@RequiredArgsConstructor(onConstructor_ = @Autowired)
+class UserIntegrationTest extends BaseIntegrationTest {
+
+  private MockWebServer mockWebServer;
+  
+  // Inyección por constructor
+  private final UserRepository userRepository;
+  private final ObjectMapper objectMapper;
+
+  // Puerto configurable desde application-test.yml
+  @Value("${test.mock.server.port}")
+  private int mockServerPort;
+
+  @BeforeAll
+  void setUpMockWebServer() {
+    // MockWebServer para servicios externos (NO @MockitoBean)
+    mockWebServer = new MockWebServer();
+    mockWebServer.start(mockServerPort); // Puerto 8081
+  }
+
+  @Test
+  void shouldCreateUserWithAllTechnologies() {
+    // Arrange - Mock del servicio externo HTTP
+    final Map<String, Object> customerData = Map.of(
+        "id", UUID.randomUUID().toString(),
+        "fullName", "Test Customer",
+        "email", "test@example.com",
+        "active", true,
+        "riskLevel", "LOW");
+
+    mockWebServer.enqueue(
+        new MockResponse()
+            .setBody(objectMapper.writeValueAsString(customerData))
+            .addHeader("Content-Type", "application/json"));
+
+    final CreateUserRequest request = MockUtils.mockCreateUserRequest();
+
+    // Act - Llamada HTTP real que usa RestClient
+    given()
+        .contentType(ContentType.JSON)
+        .body(objectMapper.writeValueAsString(request))
         .when()
-            .post("/api/products")
+        .post("/api/users")
         .then()
-            .statusCode(201)
-            .body("name", equalTo("Laptop Gaming"))
-            .body("category", equalTo("ELECTRONICS"))
-            .body("available", equalTo(true));
-    }
+        .statusCode(201)
+        .body("active", equalTo(true));
+  }
 }
 ```
 
-### **5. Tests Parametrizados** (Múltiples fuentes)
+**Configuración de Test (`application-test.yml`):**
 
-```java
-// @ValueSource - Arrays simples
-@ParameterizedTest
-@ValueSource(strings = {"INVALID", "ENABLED", "", "null"})
-void shouldRejectInvalidStatus(String invalidStatus) {
-    assertThatThrownBy(() -> service.updateStatus(invalidStatus))
-            .isInstanceOf(ResponseStatusException.class);
-}
+```yaml
+# External service configuration
+external:
+  customer:
+    service:
+      url: http://localhost:8081  # MockWebServer URL
+      timeout: 5000
 
-// @CsvSource - Datos tabulares
-@ParameterizedTest
-@CsvSource({
-        "ACTIVE, true",
-        "SUSPENDED, false",
-        "INACTIVE, false"
-})
-void shouldMapStatusToActive(User.Status status, boolean expectedActive) {
-    User user = MockUtils.mockUser(status);
-    assertThat(user.isActive()).isEqualTo(expectedActive);
-}
-
-// @MethodSource - Datos complejos (excepciones ya construidas)
-@ParameterizedTest
-@MethodSource("provideExceptionMappingData")
-void shouldMapExceptions(Exception exception, HttpStatus expectedStatus) {
-    when(useCase.createUser(any())).thenThrow(exception);
-
-    assertThatThrownBy(() -> service.createUser(request))
-            .isInstanceOf(ResponseStatusException.class)
-            .satisfies(ex -> {
-                assertThat(ex.getStatusCode()).isEqualTo(expectedStatus);
-            });
-}
-
-private static Stream<Arguments> provideExceptionMappingData() {
-    return Stream.of(
-            Arguments.of(new IllegalArgumentException("Invalid"), HttpStatus.BAD_REQUEST),
-            Arguments.of(new IllegalStateException("State error"), HttpStatus.CONFLICT)
-    );
-}
+# Test configuration
+test:
+  mock:
+    server:
+      port: 8081  # Puerto del MockWebServer (evita conflictos con 8080)
 ```
 
-## 🎨 Utilidades de Testing Centralizadas
+### **4. MockUtils - Factory Centralizado** 🏭
 
-### **MockUtils.java** - Factory de objetos mock
+**Todos los objetos mock se crean con SKU/ID único por defecto:**
 
 ```java
-public final class MockUtils {
+// Productos siempre con SKU único
+Product product = MockUtils.mockProduct();
+Product electronics = MockUtils.mockProduct(Product.Category.ELECTRONICS);
+Product activeProduct = MockUtils.mockProduct(true);
 
-    // Usuarios
-    public static User mockUser() { /* valores por defecto */ }
+// Users con diferentes configuraciones
+User user = MockUtils.mockUser();
+User inactiveUser = MockUtils.mockUser(User.Status.INACTIVE);
 
-    public static User mockUser(UUID id) { /* con ID específico */ }
+// DTOs para requests
+CreateUserRequest userRequest = MockUtils.mockCreateUserRequest();
+CreateProductRequest productRequest = MockUtils.mockCreateProductRequest(
+        "Laptop",
+        BigDecimal.valueOf(999.99));
 
-    public static User mockUser(User.Status status) { /* con estado */ }
-
-    // DTOs Web - Usuarios
-    public static UserResponse mockUserResponse() { /* por defecto */ }
-
-    public static UserResponse mockUserResponse(UUID id) { /* con ID */ }
-
-    public static UserResponse mockUserResponse(boolean active) { /* con estado */ }
-
-    public static CreateUserRequest mockCreateUserRequest() { /* por defecto */ }
-
-    public static CreateUserRequest mockCreateUserRequest(String username, String email) { /* básico */ }
-
-    // Productos
-    public static Product mockProduct() { /* por defecto */ }
-
-    public static Product mockProduct(UUID id) { /* con ID */ }
-
-    public static Product mockProduct(Product.Category category) { /* con categoría */ }
-
-    // DTOs Web - Productos
-    public static ProductResponse mockProductResponse() { /* por defecto */ }
-
-    public static ProductResponse mockProductResponse(boolean available) { /* con disponibilidad */ }
-
-    public static CreateProductRequest mockCreateProductRequest() { /* por defecto */ }
-
-    public static CreateProductRequest mockCreateProductRequest(String name, BigDecimal price) { /* básico */ }
-
-    // Clientes externos
-    public static ExternalCustomer mockExternalCustomer() { /* por defecto */ }
-
-    public static ExternalCustomer mockExternalCustomer(UUID id, String name, String email,
-                                                        boolean active, RiskLevel riskLevel) { /* completo */ }
-}
+// External customers
+ExternalCustomer customer = MockUtils.mockExternalCustomer(
+        UUID.randomUUID(),
+        "John Doe",
+        "john@example.com",
+        true,
+        ExternalCustomer.RiskLevel.LOW);
 ```
 
-### **TestConstants.java** - Constantes compartidas
+**Ventajas de MockUtils:**
 
-```java
-public final class TestConstants {
+- ✅ Consistencia en todos los tests
+- ✅ SKU únicos automáticos (evita conflictos)
+- ✅ DRY - No repetir builders
+- ✅ Fácil mantenimiento centralizado
+- ✅ Sobrecarga de métodos para flexibilidad
 
-    // User test constants
-    public static final UUID USER_ID = UUID.fromString("123e4567-e89b-12d3-a456-426614174000");
-    public static final String USER_USERNAME = "testuser";
-    public static final String USER_EMAIL = "test@santander.com";
-    public static final String USER_FIRST_NAME = "Test";
-    public static final String USER_LAST_NAME = "User";
-    public static final String USER_FULL_NAME = USER_FIRST_NAME + " " + USER_LAST_NAME;
-    public static final String USER_PHONE = "+34666123456";
+## 📁 Configuración de Archivos de Test
 
-    // Status strings
-    public static final String STATUS_STRING_ACTIVE = "ACTIVE";
-    public static final String STATUS_STRING_SUSPENDED = "SUSPENDED";
+**`application-test.yml`** - Configuración específica para tests:
 
-    // Product constants
-    public static final UUID PRODUCT_ID = UUID.fromString("223e4567-...");
-    public static final String PRODUCT_NAME = "Test Product";
-    public static final String PRODUCT_SKU = "TEST-SKU-001";
+```yaml
+spring:
+  # H2 Database en memoria
+  datasource:
+    url: jdbc:h2:mem:testdb
+    
+  # MongoDB embebido (puerto aleatorio)
+  data:
+    mongodb:
+      port: 0  # Puerto aleatorio para evitar conflictos
+    redis:
+      port: 6379
 
-    // Customer constants
-    public static final UUID CUSTOMER_ID = UUID.fromString("323e4567-...");
-
-    // Cache keys
-    public static final String CACHE_KEY_USER_PREFIX = "user:";
-    public static final String CACHE_KEY_PRODUCT_PREFIX = "product:";
-}
+# Servicio externo mockeado
+external:
+  customer:
+    service:
+      url: http://localhost:8081
+      
+test:
+  mock:
+    server:
+      port: 8081  # Puerto configurable del MockWebServer
 ```
 
-## 🚀 Funcionalidades Implementadas
+## 🚀 Ejecutar Tests
 
-### **Modelos del Dominio**
+```bash
+# Todos los tests
+mvn test
 
-#### **User (JPA/H2)**
+# Solo tests de integración
+mvn test -Dtest=*IntegrationTest
 
-```java
-@Data
-@Builder
-@Entity
-public class User {
-    @Id private UUID id;
-    
-    @NotBlank @Size(min = 3, max = 50)
-    @Pattern(regexp = "^[a-zA-Z0-9_-]+$")
-    private String username;
-    
-    @Email @NotBlank
-    private String email;
-    
-    @Pattern(regexp = "^\\+[1-9]\\d{1,14}$")
-    private String phoneNumber;
-    
-    @Enumerated(EnumType.STRING)
-    private Status status;
-    
-    public enum Status { ACTIVE, SUSPENDED, INACTIVE }
-    
-    public boolean isActive() {
-        return status == Status.ACTIVE;
-    }
-}
-```
+# Test específico
+mvn test -Dtest=UserIntegrationTest
 
-#### **Product (MongoDB)**
+# Con coverage
+mvn clean verify
 
-```java
-@Data
-@Builder
-@Document(collection = "products")
-public class Product {
-    @Id private UUID id;
-    private String name;
-    private BigDecimal price;
-    private Category category;
-    private Integer stock;
-    private Boolean active;
-    
-    public enum Category {
-        ELECTRONICS, CLOTHING, BOOKS, SPORTS, HOME, OTHER
-    }
-    
-    public boolean isAvailable() {
-        return active && stock != null && stock > 0;
-    }
-}
-```
-
-### **Persistencia Multi-Base de Datos**
-
-- **H2 (JPA)**: Usuarios con transacciones ACID y queries derivadas
-- **MongoDB Flapdoodle**: Productos NoSQL embebido sin Docker
-- **Redis**: Cache distribuido con TTL para mejora de performance
-
-### **Web Layer con DTOs Records**
-
-```java
-// Record de respuesta (Java 17+)
-public record UserResponse(
-                UUID id,
-                String email,
-                String name,
-                String phone,
-                boolean active
-        ) {
-}
-
-// Record de request con validaciones
-public record CreateUserRequest(
-        @NotBlank String username,
-        @Email String email,
-        String firstName,
-        String lastName,
-        String phoneNumber,
-        String department
-) {
-}
+# Formatear código
+mvn spotless:apply
 ```
 
 ## 📊 Coverage y Calidad
 
-### **Configuración JaCoCo**
+- **JaCoCo**: Mínimo 80% de coverage
+- **Spotless**: Google Java Style automático
+- **Checkstyle**: Validación de estilo
+- **Tests**: >85% de cobertura actual
 
-- **Mínimo requerido**: 80% instruction coverage
-- **Objetivo**: 85%+ en lógica de negocio
-- **Build falla** si coverage < 80%
+## 🎓 Patrones y Best Practices Implementados
 
-### **Ejecutar Tests y Coverage**
+### **Testing Patterns** ✨
 
-```bash
-# Ejecutar todos los tests
-mvn clean test
+1. **AAA Pattern** (Arrange-Act-Assert) - Estructura clara en todos los tests
+2. **FIRST Principles** - Fast, Independent, Repeatable, Self-validating, Timely
+3. **Given-When-Then** - Narrativa clara con RestAssured DSL
+4. **Test Fixtures** - MockUtils centralizado
+5. **Builder Pattern** - Lombok @Builder para objetos de prueba
+6. **Factory Pattern** - MockUtils como factory de mocks
+7. **Strategy Pattern** - Diferentes estrategias de mock según necesidad
 
-# Generar reporte de coverage
-mvn clean verify
+### **Integration Testing Best Practices** 🎯
 
-# Ver reporte HTML
-open target/site/jacoco/index.html
-```
+1. **Un solo contexto compartido** - `@TestInstance(PER_CLASS)` para performance
+2. **Limpieza manual de datos** - `repository.deleteAll()` en `@BeforeEach`
+3. **NO usar `@DirtiesContext`** - Evita problemas con puertos ocupados
+4. **MockWebServer real** - Simula servicios HTTP externos realmente
+5. **Embedded databases** - MongoDB Flapdoodle, H2, Redis embebidos
+6. **Puerto configurable** - MockWebServer en 8081 desde configuración
+7. **Inyección por constructor** - Mejor testabilidad y campos `final`
 
-### **Exclusiones de Coverage**
+### **Code Quality Practices** 💎
 
-```xml
+1. **Immutability** - Records, final fields, Lombok @Value
+2. **Separation of Concerns** - Arquitectura hexagonal limpia
+3. **Dependency Injection** - Constructor injection preferido
+4. **Clean Code** - Nombres descriptivos, métodos pequeños
+5. **SOLID Principles** - Especialmente SRP y DIP
+6. **DRY** - MockUtils elimina duplicación
 
-<excludes>
-    <!-- Entidades sin lógica -->
-    <exclude>**/infrastructure/persistence/jpa/entity/**</exclude>
-    <exclude>**/infrastructure/persistence/mongodb/entity/**</exclude>
+## 📝 Notas Importantes
 
-    <!-- DTOs y Records -->
-    <exclude>**/infrastructure/web/dto/**</exclude>
+### **Tests de Integración**
 
-    <!-- Configuración -->
-    <exclude>**/infrastructure/config/**</exclude>
-    <exclude>**/CapabilitiesTestingApplication.class</exclude>
+⚠️ **IMPORTANTE**: Los tests de integración usan:
 
-    <!-- Mappers simples -->
-    <exclude>**/infrastructure/persistence/mapper/**</exclude>
-</excludes>
-```
+- **MockWebServer en puerto 8081** (configurable en `application-test.yml`)
+- **NO usan `@MockitoBean`** para servicios externos HTTP
+- **RestClient real** conecta a MockWebServer para tests realistas
+- **Un solo contexto de Spring** compartido entre todos los tests
+- **Limpieza manual** de datos entre tests (no `@DirtiesContext`)
 
-## 🎯 Mejores Prácticas Aplicadas
+### **MockUtils vs Builders Inline**
 
-### **1. Principios FIRST**
+✅ **Usar MockUtils cuando:**
 
-- ✅ **Fast**: Tests rápidos con bases de datos embebidas
-- ✅ **Independent**: Cada test es independiente con setUp/tearDown
-- ✅ **Repeatable**: Mismo resultado en cualquier entorno
-- ✅ **Self-validating**: Assert claro de éxito/fallo
-- ✅ **Timely**: Tests escritos junto con el código
+- Necesitas objetos estándar de prueba
+- Quieres consistencia entre tests
+- El objeto se usa en múltiples tests
 
-### **2. Patrón AAA (Arrange-Act-Assert)**
+✅ **Usar Builders inline cuando:**
 
-```java
-@Test
-void shouldCreateUser() {
-    // Arrange - Preparar datos
-    CreateUserRequest request = MockUtils.mockCreateUserRequest();
-    when(repository.save(any())).thenReturn(user);
-    
-    // Act - Ejecutar acción
-    UserResponse result = service.createUser(request);
-    
-    // Assert - Verificar resultado
-    assertThat(result.email()).isEqualTo(USER_EMAIL);
-    verify(repository).save(any(User.class));
-}
-```
-
-### **3. DRY con MockUtils y TestConstants**
-
-- ❌ **Antes**: Repetir builders en cada test
-- ✅ **Ahora**: `MockUtils.mockUser()` / `TestConstants.USER_ID`
-
-### **4. @TestInstance.PER_CLASS para Setup Único**
-
-```java
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class MyTest {
-    
-    @BeforeAll  // No necesita ser static
-    void setUpAll() {
-        // Configuración una sola vez
-        RestAssuredMockMvc.webAppContextSetup(context);
-    }
-    
-    @AfterAll
-    void tearDownAll() {
-        // Limpieza al final
-        RestAssuredMockMvc.reset();
-    }
-}
-```
-
-### **5. @SneakyThrows para Tests Limpios**
-
-```java
-@SneakyThrows  // En lugar de throws Exception
-@Test
-void shouldDoSomething() {
-    mockWebServer.enqueue(new MockResponse()...)
-    String json = objectMapper.writeValueAsString(request);
-    // No necesita try-catch ni throws
-}
-```
-
-### **6. Map.of para Datos Inmutables**
-
-```java
-// ❌ Antes
-Map<String, Object> data = new HashMap<>();
-data.put("id", id);
-data.put("active", true);
-
-// ✅ Ahora
-Map<String, Object> data = Map.of(
-    "id", id,
-    "active", true,
-    "riskLevel", "LOW"
-);
-```
-
-## 📦 Estructura de Tests
-
-```
-src/test/java/
-├── application/service/
-│   ├── UserServiceTest.java              # Tests unitarios con @Mock
-│   ├── ProductServiceTest.java
-│   └── CustomerValidationServiceTest.java
-│
-├── infrastructure/
-│   ├── integration/
-│   │   ├── UserIntegrationTest.java      # H2 + Redis + MockWebServer
-│   │   └── ProductIntegrationTest.java   # MongoDB Flapdoodle embebido
-│   │
-│   └── web/
-│       ├── controller/
-│       │   ├── UserControllerTest.java   # @WebMvcTest + RestAssured
-│       │   └── ProductControllerTest.java
-│       │
-│       └── service/
-│           ├── UserWebServiceTest.java   # Tests parametrizados
-│           └── ProductWebServiceTest.java
-│
-└── utils/
-    ├── MockUtils.java                    # Factory centralizada
-    └── TestConstants.java                # Constantes compartidas
-```
-
-## 🚀 Comenzar
-
-### **Requisitos**
-
-- Java 21+
-- Maven 3.9+
-
-### **Ejecutar la aplicación**
-
-```bash
-# Clonar el repositorio
-git clone <repository-url>
-cd capabilities-testing
-
-# Ejecutar tests
-mvn clean test
-
-# Ejecutar con coverage
-mvn clean verify
-
-# Ejecutar la aplicación
-mvn spring-boot:run
-```
-
-### **Endpoints disponibles**
-
-#### **Users (H2/JPA)**
-
-```http
-POST   /api/users              - Crear usuario
-GET    /api/users/{id}         - Obtener usuario
-GET    /api/users/active       - Listar usuarios activos
-PUT    /api/users/{id}/status  - Actualizar estado
-DELETE /api/users/{id}         - Eliminar usuario
-```
-
-#### **Products (MongoDB)**
-
-```http
-POST   /api/products           - Crear producto
-GET    /api/products/{id}      - Obtener producto
-GET    /api/products/search    - Buscar por categoría
-GET    /api/products/active    - Listar productos activos
-PUT    /api/products/{id}/stock - Actualizar stock
-DELETE /api/products/{id}      - Eliminar producto
-```
-
-## 📚 Recursos y Referencias
-
-- [Spring Boot Testing](https://spring.io/guides/gs/testing-web)
-- [JUnit 5 User Guide](https://junit.org/junit5/docs/current/user-guide/)
-- [RestAssured](https://rest-assured.io/)
-- [AssertJ](https://assertj.github.io/doc/)
-- [Flapdoodle MongoDB](https://github.com/flapdoodle-oss/de.flapdoodle.embed.mongo.spring)
-- [JaCoCo](https://www.jacoco.org/jacoco/trunk/doc/)
+- El test necesita valores muy específicos
+- Es un caso edge único
+- Quieres destacar valores particulares en el test
 
 ## 🤝 Contribuir
 
-Este proyecto es un showcase de testing. Para mejoras:
-
 1. Fork el proyecto
-2. Crear feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit cambios (`git commit -m 'Add some AmazingFeature'`)
-4. Push al branch (`git push origin feature/AmazingFeature`)
-5. Abrir Pull Request
+2. Crea una rama (`git checkout -b feature/amazing-test`)
+3. Aplica Spotless (`mvn spotless:apply`)
+4. Verifica tests (`mvn verify`)
+5. Commit (`git commit -m 'Add amazing test'`)
+6. Push (`git push origin feature/amazing-test`)
+7. Abre un Pull Request
 
-## 📝 Licencia
+## 📚 Referencias
 
-Este proyecto es de código abierto y está disponible bajo la licencia MIT.
+- [Spring Boot Testing](https://docs.spring.io/spring-boot/docs/current/reference/html/features.html#features.testing)
+- [RestAssured Documentation](https://rest-assured.io/)
+- [MockWebServer Guide](https://github.com/square/okhttp/tree/master/mockwebserver)
+- [JUnit 5 User Guide](https://junit.org/junit5/docs/current/user-guide/)
+- [AssertJ Documentation](https://assertj.github.io/doc/)
 
 ---
 
-**Desarrollado con ❤️ para demostrar las mejores prácticas de testing en Spring Boot**
+**Creado con ❤️ para demostrar las mejores prácticas de testing en Spring Boot**

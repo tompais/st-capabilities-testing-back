@@ -58,9 +58,15 @@ logging:
     io.lettuce.core: WARN
     org.springframework.data.redis: WARN
 
-# External service configuration (will be overridden by MockWebServer in tests)
+# External service configuration (will be mocked by MockWebServer in tests)
 external:
   customer:
     service:
-      url: http://localhost:8080/customers
+      url: http://localhost:8081
       timeout: 5000
+
+# Test configuration
+test:
+  mock:
+    server:
+      port: 8081
