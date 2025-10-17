@@ -11,7 +11,6 @@ import com.santandertecnologia.capabilitiestesting.domain.port.out.ExternalCusto
 import com.santandertecnologia.capabilitiestesting.utils.MockUtils;
 import java.util.Optional;
 import java.util.stream.Stream;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -69,13 +68,6 @@ class CustomerValidationServiceTest {
         Arguments.of(false, ExternalCustomer.RiskLevel.BLOCKED, false, false));
   }
 
-  @BeforeEach
-  void setUp() {
-    // Configurar comportamiento por defecto del cache: siempre devuelve empty (cache miss)
-    // Esto simula que no hay nada en caché y fuerza a buscar en el servicio externo
-    when(cacheService.get(any(String.class), any(Class.class))).thenReturn(Optional.empty());
-  }
-
   @ParameterizedTest(
       name = "Customer with risk level {0} and active={1} should be able to operate: {2}")
   @DisplayName("Should validate customer operation permissions based on risk level and status")
@@ -92,13 +84,16 @@ class CustomerValidationServiceTest {
     "BLOCKED, false, false"
   })
   void shouldValidateCustomerOperationPermissionsBasedOnRiskAndStatus(
-      ExternalCustomer.RiskLevel riskLevel, boolean active, boolean expectedCanOperate) {
+      final ExternalCustomer.RiskLevel riskLevel,
+      final boolean active,
+      final boolean expectedCanOperate) {
     // Arrange - Usar MockUtils para crear el customer con los parámetros necesarios
-    ExternalCustomer customer = MockUtils.mockExternalCustomer(riskLevel, active);
+    final ExternalCustomer customer = MockUtils.mockExternalCustomer(riskLevel, active);
     when(externalCustomerService.getCustomerById(CUSTOMER_ID)).thenReturn(Optional.of(customer));
 
     // Act
-    Optional<Boolean> result = customerValidationService.validateCustomerCanOperate(CUSTOMER_ID);
+    final Optional<Boolean> result =
+        customerValidationService.validateCustomerCanOperate(CUSTOMER_ID);
 
     // Assert
     assertThat(result).isPresent().contains(expectedCanOperate);
@@ -107,18 +102,20 @@ class CustomerValidationServiceTest {
   @ParameterizedTest(name = "Risk level {0} should map to risk category correctly")
   @DisplayName("Should retrieve and validate customer risk level from external service")
   @MethodSource("provideRiskLevelData")
-  void shouldRetrieveAndValidateCustomerRiskLevel(ExternalCustomer.RiskLevel riskLevel) {
-    // Arrange - MockUtils.mockExternalCustomer(riskLevel) crea un customer activo con el risk level
-    // especificado
-    ExternalCustomer customer = MockUtils.mockExternalCustomer(riskLevel);
+  void shouldRetrieveAndValidateCustomerRiskLevel(final ExternalCustomer.RiskLevel riskLevel) {
+    // Arrange
+    final ExternalCustomer customer = MockUtils.mockExternalCustomer(riskLevel);
     when(externalCustomerService.getCustomerById(CUSTOMER_ID)).thenReturn(Optional.of(customer));
     when(externalCustomerService.getCustomerRiskLevel(CUSTOMER_ID))
         .thenReturn(Optional.of(riskLevel));
 
+    // Configurar cache para que devuelva empty (cache miss) - necesario para getCustomerRiskLevel
+    when(cacheService.get(any(String.class), any(Class.class))).thenReturn(Optional.empty());
+
     // Act
-    Optional<Boolean> canOperate =
+    final Optional<Boolean> canOperate =
         customerValidationService.validateCustomerCanOperate(CUSTOMER_ID);
-    Optional<ExternalCustomer.RiskLevel> retrievedRiskLevel =
+    final Optional<ExternalCustomer.RiskLevel> retrievedRiskLevel =
         customerValidationService.getCustomerRiskLevel(CUSTOMER_ID);
 
     // Assert
@@ -138,12 +135,12 @@ class CustomerValidationServiceTest {
   @DisplayName("Should perform comprehensive risk validation with multiple criteria")
   @MethodSource("provideCombinedValidationData")
   void shouldPerformComprehensiveRiskValidation(
-      boolean active,
-      ExternalCustomer.RiskLevel riskLevel,
-      boolean hasCompleteInfo,
-      boolean expectedValidation) {
+      final boolean active,
+      final ExternalCustomer.RiskLevel riskLevel,
+      final boolean hasCompleteInfo,
+      final boolean expectedValidation) {
     // Arrange - Create customer with complete or incomplete contact info
-    ExternalCustomer.ExternalCustomerBuilder customerBuilder =
+    final ExternalCustomer.ExternalCustomerBuilder customerBuilder =
         ExternalCustomer.builder()
             .customerId(CUSTOMER_ID)
             .name("Comprehensive Test")
@@ -156,12 +153,14 @@ class CustomerValidationServiceTest {
       customerBuilder.email(""); // Incomplete info
     }
 
-    ExternalCustomer customer = customerBuilder.build();
+    final ExternalCustomer customer = customerBuilder.build();
 
     when(externalCustomerService.getCustomerById(CUSTOMER_ID)).thenReturn(Optional.of(customer));
+    // No se necesita stub del cache aquí - performComprehensiveRiskValidation no usa cache
+    // directamente
 
     // Act
-    Optional<Boolean> result =
+    final Optional<Boolean> result =
         customerValidationService.performComprehensiveRiskValidation(CUSTOMER_ID);
 
     // Assert

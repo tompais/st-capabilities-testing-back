@@ -68,7 +68,7 @@ public record ExternalCustomer(
     private final int priority;
     private final String description;
 
-    RiskLevel(int priority, String description) {
+    RiskLevel(final int priority, final String description) {
       this.priority = priority;
       this.description = description;
     }

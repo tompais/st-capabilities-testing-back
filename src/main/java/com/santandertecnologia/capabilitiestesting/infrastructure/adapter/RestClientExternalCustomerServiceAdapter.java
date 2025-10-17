@@ -20,11 +20,11 @@ public class RestClientExternalCustomerServiceAdapter implements ExternalCustome
   private final RestClient restClient;
 
   @Override
-  public Optional<ExternalCustomer> getCustomerById(UUID customerId) {
+  public Optional<ExternalCustomer> getCustomerById(final UUID customerId) {
     log.debug("Fetching customer information for ID: {}", customerId);
 
     try {
-      ExternalCustomerResponse response =
+      final ExternalCustomerResponse response =
           restClient
               .get()
               .uri("/customers/{id}", customerId)
@@ -36,22 +36,22 @@ public class RestClientExternalCustomerServiceAdapter implements ExternalCustome
         return Optional.empty();
       }
 
-      ExternalCustomer customer = mapToExternalCustomer(response);
+      final ExternalCustomer customer = mapToExternalCustomer(response);
       log.info("Successfully retrieved customer information for ID: {}", customerId);
       return Optional.of(customer);
 
-    } catch (RestClientException e) {
+    } catch (final RestClientException e) {
       log.error("Error fetching customer with ID: {}", customerId, e);
       return Optional.empty();
     }
   }
 
   @Override
-  public Optional<ExternalCustomer.RiskLevel> getCustomerRiskLevel(UUID customerId) {
+  public Optional<ExternalCustomer.RiskLevel> getCustomerRiskLevel(final UUID customerId) {
     log.debug("Getting risk level for customer ID: {}", customerId);
 
     try {
-      RiskLevelResponse response =
+      final RiskLevelResponse response =
           restClient
               .get()
               .uri("/customers/{id}/risk-level", customerId)
@@ -63,22 +63,22 @@ public class RestClientExternalCustomerServiceAdapter implements ExternalCustome
         return Optional.empty();
       }
 
-      ExternalCustomer.RiskLevel riskLevel =
+      final ExternalCustomer.RiskLevel riskLevel =
           ExternalCustomer.RiskLevel.valueOf(response.riskLevel().toUpperCase());
       log.info("Risk level for customer {}: {}", customerId, riskLevel);
       return Optional.of(riskLevel);
 
-    } catch (RestClientException | IllegalArgumentException e) {
+    } catch (final RestClientException | IllegalArgumentException e) {
       log.error("Error fetching risk level for customer ID: {}", customerId, e);
       return Optional.empty();
     }
   }
 
-  private ExternalCustomer mapToExternalCustomer(ExternalCustomerResponse response) {
+  private ExternalCustomer mapToExternalCustomer(final ExternalCustomerResponse response) {
     ExternalCustomer.RiskLevel riskLevel;
     try {
       riskLevel = ExternalCustomer.RiskLevel.valueOf(response.riskLevel().toUpperCase());
-    } catch (IllegalArgumentException e) {
+    } catch (final IllegalArgumentException e) {
       log.warn("Unknown risk level: {}, defaulting to LOW", response.riskLevel());
       riskLevel = ExternalCustomer.RiskLevel.LOW;
     }

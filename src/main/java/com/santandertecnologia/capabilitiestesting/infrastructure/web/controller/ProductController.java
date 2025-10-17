@@ -36,21 +36,21 @@ public class ProductController {
 
   @PostMapping
   @ResponseStatus(HttpStatus.CREATED)
-  public ProductResponse createProduct(@Valid @RequestBody CreateProductRequest request) {
+  public ProductResponse createProduct(@Valid @RequestBody final CreateProductRequest request) {
     log.info("Creating product with SKU: {}", request.sku());
     return productWebService.createProduct(request);
   }
 
   @GetMapping("/{id}")
   @ResponseStatus(HttpStatus.OK)
-  public ProductResponse getProductById(@PathVariable UUID id) {
+  public ProductResponse getProductById(@PathVariable final UUID id) {
     log.info("Getting product by ID: {}", id);
     return productWebService.getProductById(id);
   }
 
   @GetMapping("/search")
   @ResponseStatus(HttpStatus.OK)
-  public List<ProductResponse> searchProductsByCategory(@RequestParam String category) {
+  public List<ProductResponse> searchProductsByCategory(@RequestParam final String category) {
     log.info("Searching products by category: {}", category);
     return productWebService.searchProductsByCategory(category);
   }
@@ -64,14 +64,15 @@ public class ProductController {
 
   @PutMapping("/{id}/stock")
   @ResponseStatus(HttpStatus.OK)
-  public ProductResponse updateStock(@PathVariable UUID id, @RequestParam Integer stock) {
+  public ProductResponse updateStock(
+      @PathVariable final UUID id, @RequestParam final Integer stock) {
     log.info("Updating product {} stock to: {}", id, stock);
     return productWebService.updateStock(id, stock);
   }
 
   @DeleteMapping("/{id}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
-  public void deleteProduct(@PathVariable UUID id) {
+  public void deleteProduct(@PathVariable final UUID id) {
     log.info("Deleting product with ID: {}", id);
     productWebService.deleteProduct(id);
   }

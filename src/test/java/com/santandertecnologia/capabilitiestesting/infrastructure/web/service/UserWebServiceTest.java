@@ -1,6 +1,16 @@
 package com.santandertecnologia.capabilitiestesting.infrastructure.web.service;
 
-import static com.santandertecnologia.capabilitiestesting.utils.TestConstants.*;
+import static com.santandertecnologia.capabilitiestesting.utils.TestConstants.STATUS_STRING_ACTIVE;
+import static com.santandertecnologia.capabilitiestesting.utils.TestConstants.USER_DEPARTMENT_ADMIN;
+import static com.santandertecnologia.capabilitiestesting.utils.TestConstants.USER_EMAIL;
+import static com.santandertecnologia.capabilitiestesting.utils.TestConstants.USER_EMAIL_ADMIN;
+import static com.santandertecnologia.capabilitiestesting.utils.TestConstants.USER_FIRST_NAME_ADMIN;
+import static com.santandertecnologia.capabilitiestesting.utils.TestConstants.USER_FULL_NAME;
+import static com.santandertecnologia.capabilitiestesting.utils.TestConstants.USER_ID;
+import static com.santandertecnologia.capabilitiestesting.utils.TestConstants.USER_LAST_NAME_ADMIN;
+import static com.santandertecnologia.capabilitiestesting.utils.TestConstants.USER_PHONE;
+import static com.santandertecnologia.capabilitiestesting.utils.TestConstants.USER_PHONE_ADMIN;
+import static com.santandertecnologia.capabilitiestesting.utils.TestConstants.USER_USERNAME_ADMIN;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -63,12 +73,8 @@ class UserWebServiceTest {
   /** Proveedor de datos para testing de mapeo de excepciones. */
   private static Stream<Arguments> provideExceptionMappingData() {
     return Stream.of(
-        // Solo incluir excepciones que el UserWebService maneja específicamente
         // Enviar la excepción ya construida en lugar de usar reflection
-        Arguments.of(new IllegalArgumentException("Invalid user data"), HttpStatus.BAD_REQUEST)
-        // RuntimeException y NullPointerException ya no se capturan en el servicio
-        // Spring las manejará automáticamente en el controlador como 500
-        );
+        Arguments.of(new IllegalArgumentException("Invalid user data"), HttpStatus.BAD_REQUEST));
   }
 
   @ParameterizedTest(name = "Status string ''{0}'' should map to User.Status.{1}")
@@ -84,14 +90,15 @@ class UserWebServiceTest {
     "inactive, INACTIVE",
     "Inactive, INACTIVE"
   })
-  void shouldParseStatusStringsCorrectly(String statusString, User.Status expectedStatus) {
+  void shouldParseStatusStringsCorrectly(
+      final String statusString, final User.Status expectedStatus) {
     // Arrange - Usar MockUtils con status específico
-    User user = MockUtils.mockUser(expectedStatus);
+    final User user = MockUtils.mockUser(expectedStatus);
 
     when(userUseCase.updateUserStatus(USER_ID, expectedStatus)).thenReturn(Optional.of(user));
 
     // Act
-    UserResponse result = userWebService.updateUserStatus(USER_ID, statusString);
+    final UserResponse result = userWebService.updateUserStatus(USER_ID, statusString);
 
     // Assert - UserResponse solo tiene los campos: id, email, name, phone, active
     assertThat(result.active()).isEqualTo(expectedStatus == User.Status.ACTIVE);
@@ -100,13 +107,13 @@ class UserWebServiceTest {
   @ParameterizedTest(name = "Invalid status ''{0}'' should throw BAD_REQUEST exception")
   @DisplayName("Should throw ResponseStatusException for invalid status strings")
   @ValueSource(strings = {"INVALID", "ENABLED", "DISABLED", "", "null", "123", "active_user"})
-  void shouldThrowExceptionForInvalidStatusStrings(String invalidStatus) {
+  void shouldThrowExceptionForInvalidStatusStrings(final String invalidStatus) {
     // Act & Assert
     assertThatThrownBy(() -> userWebService.updateUserStatus(USER_ID, invalidStatus))
         .isInstanceOf(ResponseStatusException.class)
         .satisfies(
             ex -> {
-              ResponseStatusException rse = (ResponseStatusException) ex;
+              final ResponseStatusException rse = (ResponseStatusException) ex;
               assertThat(rse.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
               assertThat(rse.getReason()).contains("Invalid status");
             });
@@ -117,19 +124,19 @@ class UserWebServiceTest {
   @DisplayName("Should correctly map CreateUserRequest to Domain User")
   @MethodSource("provideUserRequestMappingData")
   void shouldMapCreateUserRequestToDomain(
-      String username,
-      String email,
-      String firstName,
-      String lastName,
-      String phoneNumber,
-      String department) {
+      final String username,
+      final String email,
+      final String firstName,
+      final String lastName,
+      final String phoneNumber,
+      final String department) {
     // Arrange - Usar MockUtils para CreateUserRequest
-    CreateUserRequest request =
+    final CreateUserRequest request =
         MockUtils.mockCreateUserRequest(
             username, email, firstName, lastName, phoneNumber, department);
 
     // Usar MockUtils para User con parámetros personalizados
-    User expectedUser =
+    final User expectedUser =
         User.builder()
             .id(UUID.randomUUID())
             .username(username)
@@ -144,7 +151,7 @@ class UserWebServiceTest {
     when(userUseCase.createUser(any(User.class))).thenReturn(expectedUser);
 
     // Act
-    UserResponse result = userWebService.createUser(request);
+    final UserResponse result = userWebService.createUser(request);
 
     // Assert - Solo verificar campos disponibles en UserResponse
     assertThat(result.email()).isEqualTo(email);
@@ -156,9 +163,10 @@ class UserWebServiceTest {
   @ParameterizedTest(name = "Exception {0} should map to HTTP status {1}")
   @DisplayName("Should correctly map IllegalArgumentException to BAD_REQUEST")
   @MethodSource("provideExceptionMappingData")
-  void shouldMapExceptionsToCorrectHttpStatus(Exception exception, HttpStatus expectedStatus) {
+  void shouldMapExceptionsToCorrectHttpStatus(
+      final Exception exception, final HttpStatus expectedStatus) {
     // Arrange - Usar MockUtils para CreateUserRequest
-    CreateUserRequest request = MockUtils.mockCreateUserRequest();
+    final CreateUserRequest request = MockUtils.mockCreateUserRequest();
 
     when(userUseCase.createUser(any(User.class))).thenThrow(exception);
 
@@ -167,7 +175,7 @@ class UserWebServiceTest {
         .isInstanceOf(ResponseStatusException.class)
         .satisfies(
             ex -> {
-              ResponseStatusException rse = (ResponseStatusException) ex;
+              final ResponseStatusException rse = (ResponseStatusException) ex;
               assertThat(rse.getStatusCode()).isEqualTo(expectedStatus);
             });
   }
@@ -177,7 +185,8 @@ class UserWebServiceTest {
   @CsvSource({
     "false, NOT_FOUND" // Cuando deleteUser devuelve false, debe lanzar NOT_FOUND
   })
-  void shouldHandleUserNotFoundScenarios(boolean deleteResult, HttpStatus expectedStatus) {
+  void shouldHandleUserNotFoundScenarios(
+      final boolean deleteResult, final HttpStatus expectedStatus) {
     // Arrange - Simular que el usuario no existe
     when(userUseCase.getUserById(USER_ID)).thenReturn(Optional.empty());
     when(userUseCase.updateUserStatus(USER_ID, User.Status.ACTIVE)).thenReturn(Optional.empty());
@@ -188,7 +197,7 @@ class UserWebServiceTest {
         .isInstanceOf(ResponseStatusException.class)
         .satisfies(
             ex -> {
-              ResponseStatusException rse = (ResponseStatusException) ex;
+              final ResponseStatusException rse = (ResponseStatusException) ex;
               assertThat(rse.getStatusCode()).isEqualTo(expectedStatus);
             });
 
@@ -197,7 +206,7 @@ class UserWebServiceTest {
         .isInstanceOf(ResponseStatusException.class)
         .satisfies(
             ex -> {
-              ResponseStatusException rse = (ResponseStatusException) ex;
+              final ResponseStatusException rse = (ResponseStatusException) ex;
               assertThat(rse.getStatusCode()).isEqualTo(expectedStatus);
             });
 
@@ -206,7 +215,7 @@ class UserWebServiceTest {
         .isInstanceOf(ResponseStatusException.class)
         .satisfies(
             ex -> {
-              ResponseStatusException rse = (ResponseStatusException) ex;
+              final ResponseStatusException rse = (ResponseStatusException) ex;
               assertThat(rse.getStatusCode()).isEqualTo(expectedStatus);
             });
   }
@@ -214,14 +223,14 @@ class UserWebServiceTest {
   @ParameterizedTest(name = "Domain User with status {0} should map to response active={1}")
   @DisplayName("Should correctly map domain User to UserResponse")
   @CsvSource({"ACTIVE, true", "SUSPENDED, false", "INACTIVE, false"})
-  void shouldMapDomainUserToResponse(User.Status status, boolean expectedActive) {
+  void shouldMapDomainUserToResponse(final User.Status status, final boolean expectedActive) {
     // Arrange - Usar MockUtils con status específico
-    User user = MockUtils.mockUser(status);
+    final User user = MockUtils.mockUser(status);
 
     when(userUseCase.getUserById(USER_ID)).thenReturn(Optional.of(user));
 
     // Act
-    UserResponse result = userWebService.getUserById(USER_ID);
+    final UserResponse result = userWebService.getUserById(USER_ID);
 
     // Assert - Solo verificar campos disponibles en UserResponse usando constantes
     assertThat(result.id()).isEqualTo(USER_ID);

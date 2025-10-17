@@ -1,7 +1,7 @@
 package com.santandertecnologia.capabilitiestesting.infrastructure.web.dto;
 
 import java.util.UUID;
-import lombok.*;
+import lombok.Builder;
 
 /** DTO de respuesta para usuarios en la REST API. */
 @Builder

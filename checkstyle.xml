@@ -1,0 +1,140 @@
+<?xml version="1.0"?>
+<!DOCTYPE module PUBLIC
+        "-//Checkstyle//DTD Checkstyle Configuration 1.3//EN"
+        "https://checkstyle.org/dtds/configuration_1_3.dtd">
+
+<module name="Checker">
+    <property name="charset" value="UTF-8"/>
+    <property name="severity" value="warning"/>
+    <property name="fileExtensions" value="java"/>
+
+    <module name="TreeWalker">
+        <!-- ============================================ -->
+        <!-- DETECCIÓN DE CÓDIGO NO UTILIZADO -->
+        <!-- ============================================ -->
+
+        <!-- Detectar imports no utilizados -->
+        <module name="UnusedImports">
+            <property name="processJavadoc" value="true"/>
+        </module>
+
+        <!-- Detectar variables locales no utilizadas (disponible desde Checkstyle 9.3) -->
+        <module name="UnusedLocalVariable"/>
+
+        <!-- ============================================ -->
+        <!-- OBLIGAR USO DE FINAL -->
+        <!-- ============================================ -->
+
+        <!-- Parámetros de métodos deben ser final -->
+        <module name="FinalParameters">
+            <property name="tokens" value="METHOD_DEF, CTOR_DEF, LITERAL_CATCH, FOR_EACH_CLAUSE"/>
+        </module>
+
+        <!-- Variables locales deben ser final cuando sea posible -->
+        <module name="FinalLocalVariable">
+            <property name="tokens" value="VARIABLE_DEF"/>
+            <property name="validateEnhancedForLoopVariable" value="true"/>
+        </module>
+
+        <!-- ============================================ -->
+        <!-- OTRAS REGLAS DE CALIDAD DE CÓDIGO -->
+        <!-- ============================================ -->
+
+        <!-- Evitar imports con * -->
+        <module name="AvoidStarImport"/>
+
+        <!-- Detectar bloques vacíos -->
+        <module name="EmptyBlock">
+            <property name="option" value="text"/>
+            <property name="tokens" value="LITERAL_WHILE, LITERAL_TRY, LITERAL_CATCH,
+                                           LITERAL_FINALLY, LITERAL_DO, LITERAL_IF,
+                                           LITERAL_ELSE, LITERAL_FOR, INSTANCE_INIT,
+                                           STATIC_INIT, LITERAL_SWITCH"/>
+        </module>
+
+        <!-- Detectar imports redundantes -->
+        <module name="RedundantImport"/>
+
+        <!-- Detectar modificadores redundantes -->
+        <module name="RedundantModifier"/>
+
+        <!-- Evitar declaraciones de variables que ocultan otras -->
+        <module name="HiddenField">
+            <property name="ignoreConstructorParameter" value="true"/>
+            <property name="ignoreSetter" value="true"/>
+            <property name="setterCanReturnItsClass" value="true"/>
+        </module>
+
+        <!-- Detectar comparaciones simplificables -->
+        <module name="SimplifyBooleanExpression"/>
+
+        <!-- Detectar returns innecesarios en bloques booleanos -->
+        <module name="SimplifyBooleanReturn"/>
+
+        <!-- Detectar equals() y hashCode() mal implementados -->
+        <module name="EqualsHashCode"/>
+
+        <!-- Un solo statement por línea -->
+        <module name="OneStatementPerLine"/>
+
+        <!-- Evitar asignaciones en expresiones (excepto en bucles) -->
+        <module name="InnerAssignment"/>
+
+        <!-- Detectar cadenas literales duplicadas (código smell) -->
+        <module name="MultipleStringLiterals">
+            <property name="allowedDuplicates" value="2"/>
+            <property name="ignoreStringsRegexp" value='^(("")|(" ")|("test")|("Test"))$'/>
+        </module>
+
+        <!-- ============================================ -->
+        <!-- SUPRESIONES ESPECÍFICAS -->
+        <!-- ============================================ -->
+
+        <!-- Suprimir FinalParameters en clases de configuración (Spring) -->
+        <module name="SuppressionXpathSingleFilter">
+            <property name="checks" value="FinalParameters"/>
+            <property name="files" value=".*Config\.java"/>
+        </module>
+
+        <!-- Suprimir FinalParameters en clases con @Data, @Builder, etc. de Lombok -->
+        <module name="SuppressionXpathSingleFilter">
+            <property name="checks" value="FinalParameters"/>
+            <property name="query"
+                      value="//CLASS_DEF[./MODIFIERS/ANNOTATION[./IDENT[@text='Data' or @text='Builder' or @text='AllArgsConstructor' or @text='RequiredArgsConstructor']]]//METHOD_DEF"/>
+        </module>
+
+        <!-- Suprimir MultipleStringLiterals en tests -->
+        <module name="SuppressionXpathSingleFilter">
+            <property name="checks" value="MultipleStringLiterals"/>
+            <property name="files" value=".*Test\.java"/>
+        </module>
+    </module>
+
+    <!-- ============================================ -->
+    <!-- SUPRESIONES GLOBALES POR ARCHIVO -->
+    <!-- ============================================ -->
+
+    <!-- Suprimir FinalParameters en DTOs (solo transferencia de datos) -->
+    <module name="SuppressionSingleFilter">
+        <property name="checks" value="FinalParameters"/>
+        <property name="files" value=".*/dto/.*\.java"/>
+    </module>
+
+    <!-- Suprimir FinalParameters en entidades (JPA/MongoDB) -->
+    <module name="SuppressionSingleFilter">
+        <property name="checks" value="FinalParameters"/>
+        <property name="files" value=".*/entity/.*\.java"/>
+    </module>
+
+    <!-- Suprimir FinalLocalVariable en tests (para facilitar mocks) -->
+    <module name="SuppressionSingleFilter">
+        <property name="checks" value="FinalLocalVariable"/>
+        <property name="files" value=".*Test\.java"/>
+    </module>
+
+    <!-- Suprimir UnusedLocalVariable en MockUtils (métodos helper) -->
+    <module name="SuppressionSingleFilter">
+        <property name="checks" value="UnusedLocalVariable"/>
+        <property name="files" value=".*Utils\.java"/>
+    </module>
+</module>

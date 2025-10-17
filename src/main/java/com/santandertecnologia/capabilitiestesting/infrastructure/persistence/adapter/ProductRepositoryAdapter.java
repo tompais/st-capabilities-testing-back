@@ -19,20 +19,20 @@ public class ProductRepositoryAdapter implements ProductRepository {
   private final ProductMapper productMapper;
 
   @Override
-  public Product save(Product product) {
-    var entity = productMapper.toEntity(product);
-    var savedEntity = springDataProductRepository.save(entity);
+  public Product save(final Product product) {
+    final var entity = productMapper.toEntity(product);
+    final var savedEntity = springDataProductRepository.save(entity);
     return productMapper.toDomain(savedEntity);
   }
 
   @Override
-  public Optional<Product> findById(UUID id) {
+  public Optional<Product> findById(final UUID id) {
     return springDataProductRepository.findById(id).map(productMapper::toDomain);
   }
 
   @Override
-  public List<Product> findByCategory(Product.Category category) {
-    var entityCategory = productMapper.toEntityCategory(category);
+  public List<Product> findByCategory(final Product.Category category) {
+    final var entityCategory = productMapper.toEntityCategory(category);
     return springDataProductRepository.findByCategory(entityCategory).stream()
         .map(productMapper::toDomain)
         .toList();
@@ -46,12 +46,17 @@ public class ProductRepositoryAdapter implements ProductRepository {
   }
 
   @Override
-  public void deleteById(UUID id) {
+  public void deleteById(final UUID id) {
     springDataProductRepository.deleteById(id);
   }
 
   @Override
-  public boolean existsBySku(String sku) {
+  public void deleteAll() {
+    springDataProductRepository.deleteAll();
+  }
+
+  @Override
+  public boolean existsBySku(final String sku) {
     return springDataProductRepository.existsBySku(sku);
   }
 }

@@ -21,15 +21,17 @@ import org.springframework.web.server.ResponseStatusException;
 @Slf4j
 public class UserWebService {
 
+  private static final String USER_NOT_FOUND_MSG = "User not found with ID: ";
+
   private final UserUseCase userUseCase;
 
   /** Crea un nuevo usuario mapeando el DTO a entidad del dominio. */
-  public UserResponse createUser(CreateUserRequest request) {
+  public UserResponse createUser(final CreateUserRequest request) {
     try {
-      User user = mapRequestToDomain(request);
-      User createdUser = userUseCase.createUser(user);
+      final User user = mapRequestToDomain(request);
+      final User createdUser = userUseCase.createUser(user);
       return mapDomainToResponse(createdUser);
-    } catch (IllegalArgumentException e) {
+    } catch (final IllegalArgumentException e) {
       log.error("Invalid user data: {}", e.getMessage());
       throw new ResponseStatusException(
           HttpStatus.BAD_REQUEST, "Invalid user data: " + e.getMessage(), e);
@@ -37,15 +39,14 @@ public class UserWebService {
   }
 
   /** Obtiene un usuario por ID con manejo de excepciones apropiado. */
-  public UserResponse getUserById(UUID id) {
+  public UserResponse getUserById(final UUID id) {
     return userUseCase
         .getUserById(id)
         .map(this::mapDomainToResponse)
         .orElseThrow(
             () -> {
-              log.warn("User not found with ID: {}", id);
-              return new ResponseStatusException(
-                  HttpStatus.NOT_FOUND, "User not found with ID: " + id);
+              log.warn(USER_NOT_FOUND_MSG + "{}", id);
+              return new ResponseStatusException(HttpStatus.NOT_FOUND, USER_NOT_FOUND_MSG + id);
             });
   }
 
@@ -55,19 +56,18 @@ public class UserWebService {
   }
 
   /** Actualiza el estado de un usuario con validación de enum. */
-  public UserResponse updateUserStatus(UUID id, String status) {
+  public UserResponse updateUserStatus(final UUID id, final String status) {
     try {
-      User.Status userStatus = parseUserStatus(status);
+      final User.Status userStatus = parseUserStatus(status);
       return userUseCase
           .updateUserStatus(id, userStatus)
           .map(this::mapDomainToResponse)
           .orElseThrow(
               () -> {
                 log.warn("User not found for status update: {}", id);
-                return new ResponseStatusException(
-                    HttpStatus.NOT_FOUND, "User not found with ID: " + id);
+                return new ResponseStatusException(HttpStatus.NOT_FOUND, USER_NOT_FOUND_MSG + id);
               });
-    } catch (IllegalArgumentException e) {
+    } catch (final IllegalArgumentException e) {
       log.error("Invalid status value: {}", status);
       throw new ResponseStatusException(
           HttpStatus.BAD_REQUEST,
@@ -77,16 +77,16 @@ public class UserWebService {
   }
 
   /** Elimina un usuario con validación de existencia. */
-  public void deleteUser(UUID id) {
-    boolean deleted = userUseCase.deleteUser(id);
+  public void deleteUser(final UUID id) {
+    final boolean deleted = userUseCase.deleteUser(id);
     if (!deleted) {
       log.warn("User not found for deletion: {}", id);
-      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found with ID: " + id);
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND, USER_NOT_FOUND_MSG + id);
     }
   }
 
   /** Mapea CreateUserRequest a User del dominio. */
-  private User mapRequestToDomain(CreateUserRequest request) {
+  private User mapRequestToDomain(final CreateUserRequest request) {
     return User.builder()
         .username(request.username())
         .email(request.email())
@@ -99,7 +99,7 @@ public class UserWebService {
   }
 
   /** Mapea User del dominio a UserResponse. */
-  private UserResponse mapDomainToResponse(User user) {
+  private UserResponse mapDomainToResponse(final User user) {
     return UserResponse.builder()
         .id(user.getId()) // Ya no necesita conversión a Long
         .email(user.getEmail())
@@ -110,10 +110,10 @@ public class UserWebService {
   }
 
   /** Parsea string a User.Status con validación. */
-  private User.Status parseUserStatus(String status) {
+  private User.Status parseUserStatus(final String status) {
     try {
       return User.Status.valueOf(status.toUpperCase());
-    } catch (IllegalArgumentException e) {
+    } catch (final IllegalArgumentException e) {
       throw new IllegalArgumentException("Invalid status: " + status);
     }
   }

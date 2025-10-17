@@ -13,7 +13,6 @@ import com.santandertecnologia.capabilitiestesting.domain.port.out.ExternalCusto
 import com.santandertecnologia.capabilitiestesting.domain.port.out.UserRepository;
 import com.santandertecnologia.capabilitiestesting.infrastructure.web.dto.CreateUserRequest;
 import com.santandertecnologia.capabilitiestesting.utils.MockUtils;
-import io.github.tobi.laa.spring.boot.embedded.redis.standalone.EmbeddedRedisStandalone;
 import io.restassured.http.ContentType;
 import io.restassured.module.mockmvc.RestAssuredMockMvc;
 import java.util.Map;
@@ -23,32 +22,18 @@ import lombok.SneakyThrows;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
+import org.springframework.cache.CacheManager;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.web.context.WebApplicationContext;
 
-/**
- * Tests de integración completos que demuestran todas las tecnologías de testing: - RestAssured
- * MockMvc para tests de API REST con Hamcrest matchers - H2 para base de datos relacional en
- * memoria - Flapdoodle MongoDB embebido para NoSQL (usando mocks para simplificar) - Spring Boot
- * embedded Redis para caché - MockWebServer para simular servicios externos - Principios FIRST y
- * patrón AAA - UUIDs e inner classes
- */
-@SpringBootTest
-@ActiveProfiles("test") // Usar perfil test que carga application-test.yml
-@EmbeddedRedisStandalone // Iniciar Redis embebido automáticamente para los tests
-@TestInstance(TestInstance.Lifecycle.PER_CLASS) // Permite @BeforeAll/@AfterAll no estáticos
 @DisplayName("User Integration Tests - All Technologies with Embedded DBs")
-class UserIntegrationTest {
+class UserIntegrationTest extends BaseIntegrationTest {
 
   // Puerto fijo para MockWebServer que coincide con application-test.yml
   private static final int MOCK_SERVER_PORT = 8080;
@@ -56,18 +41,18 @@ class UserIntegrationTest {
   // MockWebServer para mockear servicios externos
   private MockWebServer mockWebServer;
 
-  @Autowired private WebApplicationContext webApplicationContext;
-
   @Autowired private UserRepository userRepository;
 
   @Autowired private ObjectMapper objectMapper;
+
+  @Autowired private CacheManager cacheManager;
 
   // Mock para el servicio de External Customer (evitamos usar MongoDB containers)
   @MockitoBean private ExternalCustomerService externalCustomerService;
 
   @SneakyThrows
   @BeforeAll
-  void setUpAll() {
+  void setUpAll(@Autowired final WebApplicationContext webApplicationContext) {
     // Arrange - Configurar infraestructura de testing
 
     // Iniciar MockWebServer para simular servicios externos en el puerto 8080
@@ -98,14 +83,18 @@ class UserIntegrationTest {
     // Limpiar base de datos H2 antes de cada test
     userRepository.deleteAll();
 
+    // Limpiar Redis cache manualmente para evitar interferencias entre tests
+    if (cacheManager != null) {
+      cacheManager.getCacheNames().forEach(cacheName -> {
+        final var cache = cacheManager.getCache(cacheName);
+        if (cache != null) {
+          cache.clear();
+        }
+      });
+    }
+
     // Configurar comportamiento por defecto del mock del servicio externo
     when(externalCustomerService.getCustomerById(any(UUID.class))).thenReturn(Optional.empty());
-  }
-
-  @AfterEach
-  void tearDown() {
-    // Cleanup - Limpiar datos después de cada test para aislamiento
-    userRepository.deleteAll();
   }
 
   /**
@@ -125,10 +114,10 @@ class UserIntegrationTest {
     @DisplayName("Should create user and validate complete flow with all technologies")
     void shouldCreateUserAndValidateCompleteFlowWithAllTechnologies() {
       // Arrange - Preparar datos de prueba con UUID único
-      UUID userId = UUID.randomUUID();
-      String userEmail = "integration.test+" + userId + "@santander.com";
+      final UUID userId = UUID.randomUUID();
+      final String userEmail = "integration.test+" + userId + "@santander.com";
 
-      CreateUserRequest request =
+      final CreateUserRequest request =
           CreateUserRequest.builder()
               .username("integrationuser" + userId.toString().substring(0, 8))
               .email(userEmail)
@@ -143,7 +132,7 @@ class UserIntegrationTest {
               .addHeader("Content-Type", "application/json"));
 
       // Mock para el servicio de External Customer usando MockUtils
-      ExternalCustomer mockCustomer =
+      final ExternalCustomer mockCustomer =
           MockUtils.mockExternalCustomer(
               UUID.randomUUID(),
               "Integration Customer",
@@ -165,15 +154,13 @@ class UserIntegrationTest {
           .body("email", equalTo(request.email()))
           .body("name", equalTo(request.firstName() + " " + request.lastName()))
           .body("active", equalTo(true));
-
-      // No es necesario verificar con AssertJ - RestAssured ya validó todo en la respuesta HTTP
     }
 
     @Test
     @DisplayName("Should retrieve user from Redis cache on second request")
     void shouldRetrieveUserFromRedisCacheOnSecondRequest() {
       // Arrange - Crear usuario en base de datos H2
-      User user =
+      final User user =
           User.builder()
               .username("cacheduser")
               .email("cached@santander.com")
@@ -182,7 +169,7 @@ class UserIntegrationTest {
               .status(User.Status.ACTIVE)
               .build();
 
-      User savedUser = userRepository.save(user);
+      final User savedUser = userRepository.save(user);
 
       // Act & Assert - Primera request (desde DB, se guarda en Redis cache)
       given()
@@ -216,8 +203,8 @@ class UserIntegrationTest {
     @DisplayName("Should validate user with external customer service integration")
     void shouldValidateUserWithExternalCustomerServiceIntegration() {
       // Arrange - Configurar mock del servicio externo usando MockUtils
-      UUID customerId = UUID.randomUUID();
-      ExternalCustomer mockCustomer =
+      final UUID customerId = UUID.randomUUID();
+      final ExternalCustomer mockCustomer =
           MockUtils.mockExternalCustomer(
               customerId,
               "Validated Customer",
@@ -229,7 +216,7 @@ class UserIntegrationTest {
           .thenReturn(Optional.of(mockCustomer));
 
       // Configurar mock del servicio HTTP externo usando Map.of
-      Map<String, Object> customerData =
+      final Map<String, Object> customerData =
           Map.of(
               "customerId",
               customerId.toString(),
@@ -245,7 +232,7 @@ class UserIntegrationTest {
               .setBody(objectMapper.writeValueAsString(customerData))
               .addHeader("Content-Type", "application/json"));
 
-      CreateUserRequest request =
+      final CreateUserRequest request =
           CreateUserRequest.builder()
               .username("validateduser")
               .email("validated@santander.com")
@@ -275,7 +262,7 @@ class UserIntegrationTest {
     void shouldRetrieveAllActiveUsersEfficientlyFromH2() {
       // Arrange - Crear múltiples usuarios con diferentes estados
       for (int i = 0; i < 5; i++) {
-        User user =
+        final User user =
             User.builder()
                 .username("batchuser" + i)
                 .email("batch" + i + "@santander.com")
@@ -302,7 +289,7 @@ class UserIntegrationTest {
     @DisplayName("Should handle cross-service operations between H2 and external services")
     void shouldHandleCrossServiceOperationsBetweenH2AndExternalServices() {
       // Arrange - Crear datos en H2 y configurar mock de servicio externo
-      User user =
+      final User user =
           User.builder()
               .username("crossserviceuser")
               .email("crossservice@santander.com")
@@ -310,10 +297,10 @@ class UserIntegrationTest {
               .lastName("User")
               .status(User.Status.ACTIVE)
               .build();
-      User savedUser = userRepository.save(user);
+      final User savedUser = userRepository.save(user);
 
       // Configurar mock del servicio externo usando MockUtils
-      ExternalCustomer mockCustomer =
+      final ExternalCustomer mockCustomer =
           MockUtils.mockExternalCustomer(
               savedUser.getId(),
               "Cross Service Customer",
@@ -348,7 +335,7 @@ class UserIntegrationTest {
       // Arrange - Configurar fallo del servicio externo
       mockWebServer.enqueue(new MockResponse().setResponseCode(500));
 
-      CreateUserRequest request =
+      final CreateUserRequest request =
           CreateUserRequest.builder()
               .username("failureuser")
               .email("failure@santander.com")
@@ -370,10 +357,11 @@ class UserIntegrationTest {
     @DisplayName("Should return 404 for non-existent user")
     void shouldReturn404ForNonExistentUser() {
       // Arrange
-      UUID nonExistentId = UUID.randomUUID();
+      final UUID nonExistentId = UUID.randomUUID();
 
       // Act & Assert
       given().when().get("/api/users/{id}", nonExistentId.toString()).then().statusCode(404);
     }
   }
 }
+

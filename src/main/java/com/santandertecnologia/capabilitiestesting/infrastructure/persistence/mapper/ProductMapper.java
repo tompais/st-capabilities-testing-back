@@ -14,7 +14,7 @@ public class ProductMapper {
    * @param product modelo de dominio
    * @return entidad MongoDB
    */
-  public ProductEntity toEntity(Product product) {
+  public ProductEntity toEntity(final Product product) {
     if (product == null) {
       return null;
     }
@@ -42,7 +42,7 @@ public class ProductMapper {
    * @param entity entidad MongoDB
    * @return modelo de dominio
    */
-  public Product toDomain(ProductEntity entity) {
+  public Product toDomain(final ProductEntity entity) {
     if (entity == null) {
       return null;
     }
@@ -65,7 +65,7 @@ public class ProductMapper {
   }
 
   /** Convierte de enum de dominio a enum de entidad. */
-  public ProductEntity.ProductCategory toEntityCategory(Product.Category domainCategory) {
+  public ProductEntity.ProductCategory toEntityCategory(final Product.Category domainCategory) {
     if (domainCategory == null) {
       return null;
     }
@@ -73,7 +73,7 @@ public class ProductMapper {
   }
 
   /** Convierte de enum de entidad a enum de dominio. */
-  public Product.Category toDomainCategory(ProductEntity.ProductCategory entityCategory) {
+  public Product.Category toDomainCategory(final ProductEntity.ProductCategory entityCategory) {
     if (entityCategory == null) {
       return null;
     }

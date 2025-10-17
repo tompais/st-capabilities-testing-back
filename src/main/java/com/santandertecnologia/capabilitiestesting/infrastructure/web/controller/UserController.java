@@ -36,14 +36,14 @@ public class UserController {
 
   @PostMapping
   @ResponseStatus(HttpStatus.CREATED)
-  public UserResponse createUser(@Valid @RequestBody CreateUserRequest request) {
+  public UserResponse createUser(@Valid @RequestBody final CreateUserRequest request) {
     log.info("Creating user with email: {}", request.email());
     return userWebService.createUser(request);
   }
 
   @GetMapping("/{id}")
   @ResponseStatus(HttpStatus.OK)
-  public UserResponse getUserById(@PathVariable UUID id) {
+  public UserResponse getUserById(@PathVariable final UUID id) {
     log.info("Getting user by ID: {}", id);
     return userWebService.getUserById(id);
   }
@@ -57,14 +57,15 @@ public class UserController {
 
   @PutMapping("/{id}/status")
   @ResponseStatus(HttpStatus.OK)
-  public UserResponse updateUserStatus(@PathVariable UUID id, @RequestParam String status) {
+  public UserResponse updateUserStatus(
+      @PathVariable final UUID id, @RequestParam final String status) {
     log.info("Updating user {} status to: {}", id, status);
     return userWebService.updateUserStatus(id, status);
   }
 
   @DeleteMapping("/{id}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
-  public void deleteUser(@PathVariable UUID id) {
+  public void deleteUser(@PathVariable final UUID id) {
     log.info("Deleting user with ID: {}", id);
     userWebService.deleteUser(id);
   }

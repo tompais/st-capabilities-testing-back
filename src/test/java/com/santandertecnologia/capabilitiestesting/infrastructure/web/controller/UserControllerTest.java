@@ -15,10 +15,12 @@ import com.santandertecnologia.capabilitiestesting.utils.MockUtils;
 import io.restassured.http.ContentType;
 import io.restassured.module.mockmvc.RestAssuredMockMvc;
 import java.util.List;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.HttpStatus;
@@ -32,20 +34,29 @@ import org.springframework.web.server.ResponseStatusException;
  * estructura con @ResponseStatus y UserWebService. Refactorizado para usar MockUtils.
  */
 @WebMvcTest(UserController.class)
-@ActiveProfiles("test") // Forzar uso del perfil test
+@ActiveProfiles("test")
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @DisplayName("UserController Tests")
 class UserControllerTest {
 
   // Inicializar objetos de prueba a nivel de clase usando MockUtils
   private final UserResponse testUserResponse = MockUtils.mockUserResponse();
   private final CreateUserRequest createUserRequest = MockUtils.mockCreateUserRequest();
+
   @Autowired private MockMvc mockMvc;
   @MockitoBean private UserWebService userWebService;
 
-  @BeforeEach
-  void setUp() {
-    // Configurar RestAssured MockMvc
+  @BeforeAll
+  void setUpAll() {
+    // Configurar RestAssured MockMvc una sola vez para todos los tests
+    // Usar mockMvc() en lugar de standaloneSetup() para usar el contexto completo de Spring
     RestAssuredMockMvc.mockMvc(mockMvc);
+  }
+
+  @AfterAll
+  void tearDownAll() {
+    // Limpiar configuración de RestAssured después de todos los tests
+    RestAssuredMockMvc.reset();
   }
 
   @Nested
@@ -77,7 +88,7 @@ class UserControllerTest {
     @DisplayName("Should return 400 for validation errors")
     void shouldReturn400ForValidationErrors() {
       // Arrange - Usar MockUtils con parámetros inválidos
-      CreateUserRequest invalidRequest = MockUtils.mockCreateUserRequest("", "invalid-email");
+      final CreateUserRequest invalidRequest = MockUtils.mockCreateUserRequest("", "invalid-email");
 
       // Act & Assert
       given()
@@ -156,7 +167,7 @@ class UserControllerTest {
     @DisplayName("Should update status with 200 response")
     void shouldUpdateStatusWith200Response() {
       // Arrange - Usar MockUtils con estado inactivo
-      UserResponse suspendedUser = MockUtils.mockUserResponse(false);
+      final UserResponse suspendedUser = MockUtils.mockUserResponse(false);
 
       when(userWebService.updateUserStatus(USER_ID, "SUSPENDED")).thenReturn(suspendedUser);
 
@@ -197,7 +208,7 @@ class UserControllerTest {
     @DisplayName("Should return active users list with 200 status")
     void shouldReturnActiveUsersListWith200Status() {
       // Arrange - Usar MockUtils para crear la lista
-      List<UserResponse> activeUsers = List.of(testUserResponse);
+      final List<UserResponse> activeUsers = List.of(testUserResponse);
       when(userWebService.getActiveUsers()).thenReturn(activeUsers);
 
       // Act & Assert

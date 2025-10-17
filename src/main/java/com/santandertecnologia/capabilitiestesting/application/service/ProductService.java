@@ -27,7 +27,7 @@ public class ProductService implements ProductUseCase {
   private final CacheService cacheService;
 
   @Override
-  public Product createProduct(Product product) {
+  public Product createProduct(final Product product) {
     log.info("Creating new product with name: {}", product.getName());
 
     // Validar SKU si se proporciona
@@ -36,7 +36,7 @@ public class ProductService implements ProductUseCase {
     }
 
     // Generar UUID si no se proporciona
-    Product productToSave =
+    final Product productToSave =
         product.getId() == null
             ? Product.builder()
                 .id(UUID.randomUUID())
@@ -51,7 +51,7 @@ public class ProductService implements ProductUseCase {
                 .build()
             : product;
 
-    Product savedProduct = productRepository.save(productToSave);
+    final Product savedProduct = productRepository.save(productToSave);
     cacheProduct(savedProduct);
 
     log.info("Product created successfully with ID: {}", savedProduct.getId());
@@ -59,64 +59,69 @@ public class ProductService implements ProductUseCase {
   }
 
   @Override
-  public Optional<Product> getProductById(UUID id) {
+  public Optional<Product> getProductById(final UUID id) {
     log.debug("Getting product by ID: {}", id);
 
     // Intentar obtener del caché primero
-    Optional<Product> cachedProduct = cacheService.get(PRODUCT_CACHE_PREFIX + id, Product.class);
+    final Optional<Product> cachedProduct =
+        cacheService.get(PRODUCT_CACHE_PREFIX + id, Product.class);
     if (cachedProduct.isPresent()) {
       log.debug("Product found in cache with ID: {}", id);
       return cachedProduct;
     }
 
     // Si no está en caché, buscar en repositorio
-    Optional<Product> product = productRepository.findById(id);
+    final Optional<Product> product = productRepository.findById(id);
     product.ifPresent(this::cacheProduct);
 
     return product;
   }
 
   @Override
-  public List<Product> getProductsByCategory(Product.Category category) {
+  public List<Product> getProductsByCategory(final Product.Category category) {
     log.debug("Getting products by category: {}", category);
     return productRepository.findByCategory(category);
   }
 
   @Override
-  public Optional<Product> updateProductStock(UUID id, Integer newStock) {
+  public Optional<Product> updateProductStock(final UUID id, final Integer newStock) {
     log.info("Updating stock for product ID: {} to: {}", id, newStock);
 
     return productRepository
         .findById(id)
         .map(
             existingProduct -> {
-              Product updatedProduct =
+              // Actualizar el estado activo basado en el stock: si stock es 0, marcar como inactivo
+              final boolean isActive = newStock != null && newStock > 0;
+
+              final Product updatedProduct =
                   Product.builder()
                       .id(existingProduct.getId())
                       .name(existingProduct.getName())
                       .description(existingProduct.getDescription())
                       .price(existingProduct.getPrice())
                       .category(existingProduct.getCategory())
-                      .active(existingProduct.isActive())
+                      .active(isActive) // Actualizar estado basado en stock
                       .stock(newStock)
-                      .brand(existingProduct.getBrand())
                       .sku(existingProduct.getSku())
+                      .brand(existingProduct.getBrand())
                       .weight(existingProduct.getWeight())
                       .imageUrl(existingProduct.getImageUrl())
                       .createdAt(existingProduct.getCreatedAt())
                       .updatedAt(LocalDateTime.now())
                       .build();
 
-              Product savedProduct = productRepository.save(updatedProduct);
+              final Product savedProduct = productRepository.save(updatedProduct);
               cacheProduct(savedProduct);
 
-              log.info("Product stock updated successfully for ID: {}", id);
+              log.info(
+                  "Product stock updated successfully for ID: {}. Active status: {}", id, isActive);
               return savedProduct;
             });
   }
 
   @Override
-  public boolean deleteProduct(UUID id) {
+  public boolean deleteProduct(final UUID id) {
     log.info("Deleting product with ID: {}", id);
 
     return productRepository
@@ -142,12 +147,16 @@ public class ProductService implements ProductUseCase {
   }
 
   @Override
-  public Optional<Product> updateStock(UUID id, Integer newStock) {
+  public Optional<Product> updateStock(final UUID id, final Integer newStock) {
     log.debug("Updating stock for product ID: {} (delegating to updateProductStock)", id);
     return updateProductStock(id, newStock);
   }
 
-  private void cacheProduct(Product product) {
+  private boolean validateStock(final UUID id, final Integer newStock) {
+    return newStock != null && newStock >= 0;
+  }
+
+  private void cacheProduct(final Product product) {
     if (product != null && product.getId() != null) {
       cacheService.put(PRODUCT_CACHE_PREFIX + product.getId(), product, CACHE_TTL_SECONDS);
     }

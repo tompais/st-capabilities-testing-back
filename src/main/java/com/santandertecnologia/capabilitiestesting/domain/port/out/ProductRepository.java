@@ -27,6 +27,9 @@ public interface ProductRepository {
   /** Elimina un producto por su ID. */
   void deleteById(UUID id);
 
+  /** Elimina todos los productos. */
+  void deleteAll();
+
   /** Verifica si existe un producto con el SKU dado. */
   boolean existsBySku(String sku);
 }

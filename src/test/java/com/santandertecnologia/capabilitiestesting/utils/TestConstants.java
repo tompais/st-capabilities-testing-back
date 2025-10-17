@@ -34,6 +34,7 @@ public final class TestConstants {
 
   // Product test constants
   public static final UUID PRODUCT_ID = UUID.fromString("223e4567-e89b-12d3-a456-426614174000");
+  public static final UUID PRODUCT_ID_2 = UUID.fromString("223e4567-e89b-12d3-a456-426614174001");
   public static final String PRODUCT_NAME = "Test Product";
   public static final String PRODUCT_DESCRIPTION = "Test product description";
   public static final String PRODUCT_SKU = "TEST-SKU-001";

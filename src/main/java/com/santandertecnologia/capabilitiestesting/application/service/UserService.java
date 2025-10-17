@@ -4,6 +4,7 @@ import com.santandertecnologia.capabilitiestesting.domain.model.User;
 import com.santandertecnologia.capabilitiestesting.domain.port.in.UserUseCase;
 import com.santandertecnologia.capabilitiestesting.domain.port.out.CacheService;
 import com.santandertecnologia.capabilitiestesting.domain.port.out.UserRepository;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -26,7 +27,7 @@ public class UserService implements UserUseCase {
   private final CacheService cacheService;
 
   @Override
-  public User createUser(User user) {
+  public User createUser(final User user) {
     log.info("Creating new user with username: {}", user.getUsername());
 
     if (userRepository.existsByUsername(user.getUsername())) {
@@ -38,7 +39,7 @@ public class UserService implements UserUseCase {
     }
 
     // Generar UUID si no se proporciona
-    User userToSave =
+    final User userToSave =
         user.getId() == null
             ? User.builder()
                 .id(UUID.randomUUID())
@@ -55,7 +56,7 @@ public class UserService implements UserUseCase {
                 .build()
             : user;
 
-    User savedUser = userRepository.save(userToSave);
+    final User savedUser = userRepository.save(userToSave);
     cacheUser(savedUser);
 
     log.info("User created successfully with ID: {}", savedUser.getId());
@@ -63,18 +64,18 @@ public class UserService implements UserUseCase {
   }
 
   @Override
-  public Optional<User> getUserById(UUID id) {
+  public Optional<User> getUserById(final UUID id) {
     log.debug("Getting user by ID: {}", id);
 
     // Intentar obtener del caché primero
-    Optional<User> cachedUser = cacheService.get(USER_CACHE_PREFIX + id, User.class);
+    final Optional<User> cachedUser = cacheService.get(USER_CACHE_PREFIX + id, User.class);
     if (cachedUser.isPresent()) {
       log.debug("User found in cache with ID: {}", id);
       return cachedUser;
     }
 
     // Si no está en caché, buscar en repositorio
-    Optional<User> user = userRepository.findById(id);
+    final Optional<User> user = userRepository.findById(id);
     user.ifPresent(this::cacheUser);
 
     return user;
@@ -87,14 +88,14 @@ public class UserService implements UserUseCase {
   }
 
   @Override
-  public Optional<User> changeUserStatus(UUID id, User.Status status) {
+  public Optional<User> changeUserStatus(final UUID id, final User.Status status) {
     log.info("Changing user status for ID: {} to: {}", id, status);
 
     return userRepository
         .findById(id)
         .map(
             existingUser -> {
-              User updatedUser =
+              final User updatedUser =
                   User.builder()
                       .id(existingUser.getId())
                       .username(existingUser.getUsername())
@@ -108,7 +109,7 @@ public class UserService implements UserUseCase {
                       .lastLoginAt(existingUser.getLastLoginAt())
                       .build();
 
-              User savedUser = userRepository.save(updatedUser);
+              final User savedUser = userRepository.save(updatedUser);
               cacheUser(savedUser);
 
               log.info("User status changed successfully for ID: {}", id);
@@ -117,7 +118,7 @@ public class UserService implements UserUseCase {
   }
 
   @Override
-  public boolean deleteUser(UUID id) {
+  public boolean deleteUser(final UUID id) {
     log.info("Deleting user with ID: {}", id);
 
     return userRepository
@@ -137,12 +138,41 @@ public class UserService implements UserUseCase {
   }
 
   @Override
-  public Optional<User> updateUserStatus(UUID id, User.Status status) {
-    log.debug("Updating user status for ID: {} (delegating to changeUserStatus)", id);
-    return changeUserStatus(id, status);
+  public Optional<User> updateUserStatus(final UUID id, final User.Status status) {
+    log.info("Updating status for user ID: {} to: {}", id, status);
+
+    return userRepository
+        .findById(id)
+        .map(
+            existingUser -> {
+              final User updatedUser =
+                  User.builder()
+                      .id(existingUser.getId())
+                      .username(existingUser.getUsername())
+                      .email(existingUser.getEmail())
+                      .firstName(existingUser.getFirstName())
+                      .lastName(existingUser.getLastName())
+                      .phoneNumber(existingUser.getPhoneNumber())
+                      .department(existingUser.getDepartment())
+                      .status(status)
+                      .createdAt(existingUser.getCreatedAt())
+                      .updatedAt(LocalDateTime.now())
+                      .lastLoginAt(existingUser.getLastLoginAt())
+                      .build();
+
+              final User savedUser = userRepository.save(updatedUser);
+              cacheUser(savedUser);
+
+              log.info("User status updated successfully for ID: {}", id);
+              return savedUser;
+            });
   }
 
-  private void cacheUser(User user) {
+  private boolean isUserStatusValid(final UUID id, final User.Status status) {
+    return userRepository.findById(id).map(user -> user.getStatus() != status).orElse(false);
+  }
+
+  private void cacheUser(final User user) {
     if (user != null && user.getId() != null) {
       cacheService.put(USER_CACHE_PREFIX + user.getId(), user, CACHE_TTL_SECONDS);
     }

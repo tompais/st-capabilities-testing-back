@@ -21,49 +21,38 @@ import org.springframework.web.server.ResponseStatusException;
 @Slf4j
 public class ProductWebService {
 
+  private static final String PRODUCT_NOT_FOUND = "Product not found with ID: ";
   private final ProductUseCase productUseCase;
 
   /** Crea un nuevo producto mapeando el DTO a entidad del dominio. */
-  public ProductResponse createProduct(CreateProductRequest request) {
+  public ProductResponse createProduct(final CreateProductRequest request) {
     try {
-      Product product = mapRequestToDomain(request);
-      Product createdProduct = productUseCase.createProduct(product);
+      final Product product = mapRequestToDomain(request);
+      final Product createdProduct = productUseCase.createProduct(product);
       return mapDomainToResponse(createdProduct);
-    } catch (IllegalArgumentException e) {
-      log.error("Invalid product data: {}", e.getMessage());
-      throw new ResponseStatusException(
-          HttpStatus.BAD_REQUEST, "Invalid product data: " + e.getMessage(), e);
+    } catch (final IllegalArgumentException e) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
     }
   }
 
   /** Obtiene un producto por ID con manejo de excepciones apropiado. */
-  public ProductResponse getProductById(UUID id) {
+  public ProductResponse getProductById(final UUID id) {
     return productUseCase
         .getProductById(id)
         .map(this::mapDomainToResponse)
         .orElseThrow(
-            () -> {
-              log.warn("Product not found with ID: {}", id);
-              return new ResponseStatusException(
-                  HttpStatus.NOT_FOUND, "Product not found with ID: " + id);
-            });
+            () -> new ResponseStatusException(HttpStatus.NOT_FOUND, PRODUCT_NOT_FOUND + id));
   }
 
   /** Busca productos por categoría con validación de enum. */
-  public List<ProductResponse> searchProductsByCategory(String category) {
+  public List<ProductResponse> searchProductsByCategory(final String category) {
     try {
-      Product.Category productCategory = Product.Category.valueOf(category.toUpperCase());
+      final Product.Category productCategory = Product.Category.valueOf(category.toUpperCase());
       return productUseCase.getProductsByCategory(productCategory).stream()
           .map(this::mapDomainToResponse)
           .toList();
-    } catch (IllegalArgumentException e) {
-      log.error("Invalid category value: {}", category);
-      throw new ResponseStatusException(
-          HttpStatus.BAD_REQUEST,
-          "Invalid category: "
-              + category
-              + ". Valid values: ELECTRONICS, CLOTHING, BOOKS, SPORTS, HOME, OTHER",
-          e);
+    } catch (final IllegalArgumentException e) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid category: " + category, e);
     }
   }
 
@@ -73,36 +62,24 @@ public class ProductWebService {
   }
 
   /** Actualiza el stock de un producto con validaciones. */
-  public ProductResponse updateStock(UUID id, Integer stock) {
-    try {
-      validateStock(stock);
-      return productUseCase
-          .updateStock(id, stock)
-          .map(this::mapDomainToResponse)
-          .orElseThrow(
-              () -> {
-                log.warn("Product not found for stock update: {}", id);
-                return new ResponseStatusException(
-                    HttpStatus.NOT_FOUND, "Product not found with ID: " + id);
-              });
-    } catch (IllegalArgumentException e) {
-      log.error("Invalid stock value: {}", stock);
-      throw new ResponseStatusException(
-          HttpStatus.BAD_REQUEST, "Invalid stock value: " + e.getMessage(), e);
-    }
+  public ProductResponse updateStock(final UUID id, final Integer stock) {
+    return productUseCase
+        .updateStock(id, stock)
+        .map(this::mapDomainToResponse)
+        .orElseThrow(
+            () -> new ResponseStatusException(HttpStatus.NOT_FOUND, PRODUCT_NOT_FOUND + id));
   }
 
   /** Elimina un producto con validación de existencia. */
-  public void deleteProduct(UUID id) {
-    boolean deleted = productUseCase.deleteProduct(id);
+  public void deleteProduct(final UUID id) {
+    final boolean deleted = productUseCase.deleteProduct(id);
     if (!deleted) {
-      log.warn("Product not found for deletion: {}", id);
-      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found with ID: " + id);
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND, PRODUCT_NOT_FOUND + id);
     }
   }
 
   /** Mapea CreateProductRequest a Product del dominio. */
-  private Product mapRequestToDomain(CreateProductRequest request) {
+  private Product mapRequestToDomain(final CreateProductRequest request) {
     return Product.builder()
         .name(request.name())
         .description(request.description())
@@ -115,7 +92,7 @@ public class ProductWebService {
   }
 
   /** Mapea Product del dominio a ProductResponse. */
-  private ProductResponse mapDomainToResponse(Product product) {
+  private ProductResponse mapDomainToResponse(final Product product) {
     return ProductResponse.builder()
         .id(product.getId()) // Ya no necesita toString()
         .name(product.getName())
@@ -128,12 +105,13 @@ public class ProductWebService {
   }
 
   /** Valida que el stock sea un valor válido. */
-  private void validateStock(Integer stock) {
+  private boolean isStockAvailable(final Integer stock) {
     if (stock == null) {
       throw new IllegalArgumentException("Stock cannot be null");
     }
     if (stock < 0) {
       throw new IllegalArgumentException("Stock cannot be negative");
     }
+    return true;
   }
 }

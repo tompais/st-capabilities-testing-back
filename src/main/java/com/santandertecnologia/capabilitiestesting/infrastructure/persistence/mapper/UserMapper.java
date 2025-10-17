@@ -14,7 +14,7 @@ public class UserMapper {
    * @param user modelo de dominio
    * @return entidad JPA
    */
-  public UserEntity toEntity(User user) {
+  public UserEntity toEntity(final User user) {
     if (user == null) {
       return null;
     }
@@ -40,7 +40,7 @@ public class UserMapper {
    * @param entity entidad JPA
    * @return modelo de dominio
    */
-  public User toDomain(UserEntity entity) {
+  public User toDomain(final UserEntity entity) {
     if (entity == null) {
       return null;
     }
@@ -61,7 +61,7 @@ public class UserMapper {
   }
 
   /** Convierte de enum de dominio a enum de entidad. */
-  public UserEntity.UserStatus toEntityStatus(User.Status domainStatus) {
+  public UserEntity.UserStatus toEntityStatus(final User.Status domainStatus) {
     if (domainStatus == null) {
       return null;
     }
@@ -69,7 +69,7 @@ public class UserMapper {
   }
 
   /** Convierte de enum de entidad a enum de dominio. */
-  public User.Status toDomainStatus(UserEntity.UserStatus entityStatus) {
+  public User.Status toDomainStatus(final UserEntity.UserStatus entityStatus) {
     if (entityStatus == null) {
       return null;
     }

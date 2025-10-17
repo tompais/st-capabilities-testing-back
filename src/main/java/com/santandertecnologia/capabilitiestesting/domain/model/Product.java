@@ -52,11 +52,11 @@ public class Product {
    * @param discountPercentage el porcentaje de descuento (0.10 = 10%)
    * @return el precio con descuento aplicado
    */
-  public BigDecimal calculateDiscountedPrice(BigDecimal discountPercentage) {
+  public BigDecimal calculateDiscountedPrice(final BigDecimal discountPercentage) {
     if (discountPercentage == null || discountPercentage.compareTo(BigDecimal.ZERO) == 0) {
       return price;
     }
-    BigDecimal discount = price.multiply(discountPercentage);
+    final BigDecimal discount = price.multiply(discountPercentage);
     return price.subtract(discount);
   }
 
@@ -66,8 +66,8 @@ public class Product {
    * @param quantity cantidad a reducir
    * @return nuevo producto con stock reducido
    */
-  public Product reduceStock(int quantity) {
-    int newStock = (stock != null) ? Math.max(0, stock - quantity) : 0;
+  public Product reduceStock(final int quantity) {
+    final int newStock = (stock != null) ? Math.max(0, stock - quantity) : 0;
     return this.toBuilder().stock(newStock).updatedAt(LocalDateTime.now()).build();
   }
 

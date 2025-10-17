@@ -12,11 +12,8 @@ spring:
       port: 6379
       timeout: 2000ms
     mongodb:
-      database: testdb
-      # El host y puerto se configuran automáticamente por Flapdoodle
-      # pero se puede especificar para tests
-      host: localhost
-      port: 27017
+      # Puerto 0 = puerto aleatorio disponible (evita conflictos entre tests)
+      port: 0
 
   # H2 Database configuration for tests
   datasource:
@@ -41,6 +38,13 @@ spring:
       enabled: true
       path: /h2-console
 
+# Flapdoodle MongoDB Embedded configuration
+de:
+  flapdoodle:
+    mongodb:
+      embedded:
+        version: 8.0.5
+
 # Logging configuration for tests
 logging:
   level:
@@ -48,10 +52,11 @@ logging:
     org.hibernate.SQL: DEBUG
     org.hibernate.type.descriptor.sql.BasicBinder: TRACE
     com.santandertecnologia.capabilitiestesting: DEBUG
-    de.flapdoodle.embed: INFO
+    # Reducir logs de MongoDB embebido
+    de.flapdoodle.embed.mongo: WARN
     org.mongodb.driver: WARN
     io.lettuce.core: WARN
-    org.springframework.data.redis: INFO
+    org.springframework.data.redis: WARN
 
 # External service configuration (will be overridden by MockWebServer in tests)
 external:

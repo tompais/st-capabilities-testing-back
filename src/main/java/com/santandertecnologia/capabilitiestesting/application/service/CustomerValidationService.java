@@ -27,29 +27,28 @@ public class CustomerValidationService implements CustomerValidationUseCase {
   private final CacheService cacheService;
 
   @Override
-  public Optional<Boolean> validateCustomerCanOperate(UUID customerId) {
-    log.info("Validating if customer can operate: {}", customerId);
+  public Optional<Boolean> validateCustomerCanOperate(final UUID customerId) {
+    log.debug("Validating if customer can operate: {}", customerId);
 
-    return getCustomerInfo(customerId)
+    return externalCustomerService
+        .getCustomerById(customerId)
         .map(
             customer -> {
-              boolean canOperate = customer.canPerformOperations();
-              log.info("Customer {} can operate: {}", customerId, canOperate);
+              final boolean canOperate =
+                  customer.isActive()
+                      && (customer.riskLevel() == ExternalCustomer.RiskLevel.LOW
+                          || customer.riskLevel() == ExternalCustomer.RiskLevel.MEDIUM);
+              log.debug("Customer {} can operate: {}", customerId, canOperate);
               return canOperate;
-            })
-        .or(
-            () -> {
-              log.warn("Customer not found for validation: {}", customerId);
-              return Optional.empty();
             });
   }
 
   @Override
-  public Optional<ExternalCustomer> getCustomerInfo(UUID customerId) {
+  public Optional<ExternalCustomer> getCustomerInfo(final UUID customerId) {
     log.debug("Getting customer info for: {}", customerId);
 
     // Intentar obtener del caché primero
-    Optional<ExternalCustomer> cachedCustomer =
+    final Optional<ExternalCustomer> cachedCustomer =
         cacheService.get(CUSTOMER_CACHE_PREFIX + customerId, ExternalCustomer.class);
 
     if (cachedCustomer.isPresent()) {
@@ -58,9 +57,7 @@ public class CustomerValidationService implements CustomerValidationUseCase {
     }
 
     // Si no está en caché, obtener del servicio externo
-    Optional<ExternalCustomer> customer = externalCustomerService.getCustomerById(customerId);
-
-    // Cachear si se encuentra
+    final Optional<ExternalCustomer> customer = externalCustomerService.getCustomerById(customerId);
     customer.ifPresent(
         c -> cacheService.put(CUSTOMER_CACHE_PREFIX + customerId, c, CACHE_TTL_SECONDS));
 
@@ -68,11 +65,11 @@ public class CustomerValidationService implements CustomerValidationUseCase {
   }
 
   @Override
-  public Optional<ExternalCustomer.RiskLevel> getCustomerRiskLevel(UUID customerId) {
+  public Optional<ExternalCustomer.RiskLevel> getCustomerRiskLevel(final UUID customerId) {
     log.debug("Getting risk level for customer: {}", customerId);
 
     // Intentar obtener del caché primero
-    Optional<ExternalCustomer.RiskLevel> cachedRiskLevel =
+    final Optional<ExternalCustomer.RiskLevel> cachedRiskLevel =
         cacheService.get(RISK_LEVEL_CACHE_PREFIX + customerId, ExternalCustomer.RiskLevel.class);
 
     if (cachedRiskLevel.isPresent()) {
@@ -81,12 +78,10 @@ public class CustomerValidationService implements CustomerValidationUseCase {
     }
 
     // Obtener del servicio externo o de la información del cliente
-    Optional<ExternalCustomer.RiskLevel> riskLevel =
+    final Optional<ExternalCustomer.RiskLevel> riskLevel =
         externalCustomerService
             .getCustomerRiskLevel(customerId)
             .or(() -> getCustomerInfo(customerId).map(ExternalCustomer::riskLevel));
-
-    // Cachear si se encuentra
     riskLevel.ifPresent(
         risk -> cacheService.put(RISK_LEVEL_CACHE_PREFIX + customerId, risk, CACHE_TTL_SECONDS));
 
@@ -94,26 +89,27 @@ public class CustomerValidationService implements CustomerValidationUseCase {
   }
 
   /** Método utilitario para realizar validaciones complejas de riesgo. */
-  public Optional<Boolean> performComprehensiveRiskValidation(UUID customerId) {
-    log.info("Performing comprehensive risk validation for customer: {}", customerId);
+  public Optional<Boolean> performComprehensiveRiskValidation(final UUID customerId) {
+    log.debug("Performing comprehensive risk validation for customer: {}", customerId);
 
-    return getCustomerInfo(customerId)
-        .flatMap(
-            customer ->
-                getCustomerRiskLevel(customerId)
-                    .map(
-                        riskLevel -> {
-                          boolean passesValidation =
-                              customer.isActive()
-                                  && customer.hasCompleteContactInfo()
-                                  && riskLevel != ExternalCustomer.RiskLevel.HIGH
-                                  && riskLevel != ExternalCustomer.RiskLevel.BLOCKED;
+    return externalCustomerService
+        .getCustomerById(customerId)
+        .map(
+            customer -> {
+              // Validaciones comprehensivas
+              final boolean passesValidation =
+                  customer.isActive()
+                      && customer.riskLevel() != ExternalCustomer.RiskLevel.HIGH
+                      && customer.riskLevel() != ExternalCustomer.RiskLevel.BLOCKED
+                      && hasCompleteContactInfo(customer);
 
-                          log.info(
-                              "Customer {} comprehensive validation result: {}",
-                              customerId,
-                              passesValidation);
-                          return passesValidation;
-                        }));
+              log.info(
+                  "Customer {} comprehensive validation result: {}", customerId, passesValidation);
+              return passesValidation;
+            });
+  }
+
+  private boolean hasCompleteContactInfo(final ExternalCustomer customer) {
+    return customer.email() != null && customer.phoneNumber() != null;
   }
 }

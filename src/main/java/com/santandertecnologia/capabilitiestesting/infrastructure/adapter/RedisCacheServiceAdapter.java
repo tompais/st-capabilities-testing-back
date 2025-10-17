@@ -22,22 +22,22 @@ public class RedisCacheServiceAdapter implements CacheService {
   private final ObjectMapper objectMapper;
 
   @Override
-  public <T> Optional<T> get(String key, Class<T> valueType) {
+  public <T> Optional<T> get(final String key, final Class<T> valueType) {
     try {
-      String jsonValue = redisTemplate.opsForValue().get(key);
+      final String jsonValue = redisTemplate.opsForValue().get(key);
       if (jsonValue == null) {
         log.debug("Cache miss for key: {}", key);
         return Optional.empty();
       }
 
-      T value = objectMapper.readValue(jsonValue, valueType);
+      final T value = objectMapper.readValue(jsonValue, valueType);
       log.debug("Cache hit for key: {}", key);
       return Optional.of(value);
 
-    } catch (JsonProcessingException e) {
+    } catch (final JsonProcessingException e) {
       log.error("Error deserializing cached value for key: {}", key, e);
       return Optional.empty();
-    } catch (Exception e) {
+    } catch (final Exception e) {
       log.error("Unexpected error retrieving cache value for key: {}", key, e);
       throw new ResponseStatusException(
           HttpStatus.INTERNAL_SERVER_ERROR, "Failed to retrieve cached value", e);
@@ -45,16 +45,16 @@ public class RedisCacheServiceAdapter implements CacheService {
   }
 
   @Override
-  public void put(String key, Object value, long ttlSeconds) {
+  public void put(final String key, final Object value, final long ttlSeconds) {
     try {
-      String jsonValue = objectMapper.writeValueAsString(value);
+      final String jsonValue = objectMapper.writeValueAsString(value);
       redisTemplate.opsForValue().set(key, jsonValue, Duration.ofSeconds(ttlSeconds));
       log.debug("Stored value in cache with key: {} and TTL: {} seconds", key, ttlSeconds);
-    } catch (JsonProcessingException e) {
+    } catch (final JsonProcessingException e) {
       log.error("Error serializing value for cache key: {}", key, e);
       throw new ResponseStatusException(
           HttpStatus.BAD_REQUEST, "Failed to serialize value for caching", e);
-    } catch (Exception e) {
+    } catch (final Exception e) {
       log.error("Unexpected error storing cache value for key: {}", key, e);
       throw new ResponseStatusException(
           HttpStatus.INTERNAL_SERVER_ERROR, "Failed to store value in cache", e);
@@ -62,11 +62,11 @@ public class RedisCacheServiceAdapter implements CacheService {
   }
 
   @Override
-  public void evict(String key) {
+  public void evict(final String key) {
     try {
-      boolean wasDeleted = redisTemplate.delete(key);
+      final boolean wasDeleted = redisTemplate.delete(key);
       log.debug("Evicted cache key: {}, was present: {}", key, wasDeleted);
-    } catch (Exception e) {
+    } catch (final Exception e) {
       log.error("Error evicting cache key: {}", key, e);
       throw new ResponseStatusException(
           HttpStatus.INTERNAL_SERVER_ERROR, "Failed to evict cache key", e);
