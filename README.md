@@ -214,54 +214,55 @@ UserIntegrationTest extends BaseIntegrationTest
 **Ejemplo de Test de Integración Completo:**
 
 ```java
+
 @DisplayName("User Integration Tests - All Technologies with Embedded DBs")
 @RequiredArgsConstructor(onConstructor_ = @Autowired)
 class UserIntegrationTest extends BaseIntegrationTest {
 
-  private MockWebServer mockWebServer;
-  
-  // Inyección por constructor
-  private final UserRepository userRepository;
-  private final ObjectMapper objectMapper;
+    private MockWebServer mockWebServer;
 
-  // Puerto configurable desde application-test.yml
-  @Value("${test.mock.server.port}")
-  private int mockServerPort;
+    // Inyección por constructor
+    private final UserRepository userRepository;
+    private final ObjectMapper objectMapper;
 
-  @BeforeAll
-  void setUpMockWebServer() {
-    // MockWebServer para servicios externos (NO @MockitoBean)
-    mockWebServer = new MockWebServer();
-    mockWebServer.start(mockServerPort); // Puerto 8081
-  }
+    // Puerto configurable desde application-test.yml
+    @Value("${test.mock.server.port}")
+    private int mockServerPort;
 
-  @Test
-  void shouldCreateUserWithAllTechnologies() {
-    // Arrange - Mock del servicio externo HTTP
-    final Map<String, Object> customerData = Map.of(
-        "id", UUID.randomUUID().toString(),
-        "fullName", "Test Customer",
-        "email", "test@example.com",
-        "active", true,
-        "riskLevel", "LOW");
+    @BeforeAll
+    void setUpMockWebServer() {
+        // MockWebServer para servicios externos (NO @MockitoBean)
+        mockWebServer = new MockWebServer();
+        mockWebServer.start(mockServerPort); // Puerto 8081
+    }
 
-    mockWebServer.enqueue(
-        new MockResponse()
-            .setBody(objectMapper.writeValueAsString(customerData))
-            .addHeader("Content-Type", "application/json"));
+    @Test
+    void shouldCreateUserWithAllTechnologies() {
+        // Arrange - Mock del servicio externo HTTP
+        final Map<String, Object> customerData = Map.of(
+                "id", UUID.randomUUID().toString(),
+                "fullName", "Test Customer",
+                "email", "test@example.com",
+                "active", true,
+                "riskLevel", "LOW");
 
-    final CreateUserRequest request = MockUtils.mockCreateUserRequest();
+        mockWebServer.enqueue(
+                new MockResponse()
+                        .setBody(objectMapper.writeValueAsString(customerData))
+                        .addHeader("Content-Type", "application/json"));
 
-    // Act - Llamada HTTP real que usa RestClient
-    given()
-        .contentType(ContentType.JSON)
-        .body(objectMapper.writeValueAsString(request))
-        .when()
-        .post("/api/users")
-        .then()
-        .statusCode(201)
-        .body("active", equalTo(true));
-  }
+        final CreateUserRequest request = MockUtils.mockCreateUserRequest();
+
+        // Act - Llamada HTTP real que usa RestClient
+        given()
+                .contentType(ContentType.JSON)
+                .body(objectMapper.writeValueAsString(request))
+                .when()
+                .post("/api/users")
+                .then()
+                .statusCode(201)
+                .body("active", equalTo(true));
+    }
 }
 ```
 
@@ -328,7 +329,7 @@ spring:
   # H2 Database en memoria
   datasource:
     url: jdbc:h2:mem:testdb
-    
+
   # MongoDB embebido (puerto aleatorio)
   data:
     mongodb:
@@ -341,7 +342,7 @@ external:
   customer:
     service:
       url: http://localhost:8081
-      
+
 test:
   mock:
     server:
@@ -416,6 +417,84 @@ mvn spotless:apply
 - **RestClient real** conecta a MockWebServer para tests realistas
 - **Un solo contexto de Spring** compartido entre todos los tests
 - **Limpieza manual** de datos entre tests (no `@DirtiesContext`)
+
+### **Validaciones en Tests de Integración** ⚠️
+
+Al crear datos de prueba para tests de integración que llaman a la API REST real, es **crucial** cumplir con todas las
+validaciones de Spring Validation:
+
+**Formato de Número de Teléfono:**
+
+```java
+// ❌ INCORRECTO - Incluye guiones
+String phoneNumber = "+34-600-000-000";
+
+// ✅ CORRECTO - Solo dígitos después del +
+String phoneNumber = "+34600000000";
+```
+
+El patrón de validación es: `^\\+[1-9]\\d{1,14}$` (formato internacional sin guiones)
+
+**Username con UUIDs:**
+
+```java
+// ❌ INCORRECTO - El UUID contiene guiones que pueden causar problemas
+String username = "user" + UUID.randomUUID().toString().substring(0, 8);
+// Resultado: "user123e4567-" (contiene guión al final)
+
+// ✅ CORRECTO - Remover guiones del UUID primero
+String username = "user" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+// Resultado: "user123e4567" (solo alfanuméricos)
+```
+
+El patrón de validación del username es: `^[a-zA-Z0-9_-]+$`
+
+**Ejemplo Completo en Test de Integración:**
+
+```java
+
+@Test
+void shouldCreateUserWithValidData() {
+    final UUID userId = UUID.randomUUID();
+
+    // Username: solo alfanuméricos del UUID (sin guiones intermedios problemáticos)
+    final String username = "integrationuser" + userId.toString().replace("-", "").substring(0, 8);
+
+    // Email: formato válido
+    final String userEmail = "test+" + userId + "@santander.com";
+
+    // Phone: formato internacional sin guiones
+    final String phoneNumber = "+34600000000";
+
+    final CreateUserRequest request = MockUtils.mockCreateUserRequest(
+            username,
+            userEmail,
+            "John",
+            "Doe",
+            phoneNumber,  // ✅ Formato correcto
+            "IT");
+
+    given()
+            .contentType(ContentType.JSON)
+            .body(objectMapper.writeValueAsString(request))
+            .when()
+            .post("/api/users")
+            .then()
+            .statusCode(201);  // ✅ Éxito
+}
+```
+
+**Validaciones en CreateUserRequest:**
+
+- `username`: 3-50 caracteres, solo letras, números, `_` y `-`
+- `email`: formato email válido, máx 100 caracteres
+- `firstName`: 2-50 caracteres
+- `lastName`: 2-50 caracteres
+- `phoneNumber`: formato internacional `+[código][número]` sin espacios ni guiones
+- `department`: máx 100 caracteres (opcional)
+
+💡 **Tip**: Si un test de integración falla con `400 Bad Request`, verifica que los datos cumplan con todas las
+validaciones de `@Valid` en los DTOs.
 
 ### **MockUtils vs Builders Inline**
 
