@@ -5,14 +5,11 @@ import static com.santandertecnologia.capabilitiestesting.utils.TestConstants.PR
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.santandertecnologia.capabilitiestesting.domain.model.Product;
-import com.santandertecnologia.capabilitiestesting.domain.port.out.CacheService;
 import com.santandertecnologia.capabilitiestesting.domain.port.out.ProductRepository;
 import com.santandertecnologia.capabilitiestesting.utils.MockUtils;
 import java.math.BigDecimal;
@@ -33,7 +30,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 /**
  * Tests unitarios para ProductService. Demuestra el uso de Mockito, AssertJ, principios FIRST,
  * patrón AAA, nested tests y tests parametrizados. Usa MockUtils y TestConstants para datos de
- * prueba consistentes.
+ * prueba consistentes. Refactorizado para usar Spring Cache annotations. Las pruebas de caché se
+ * movieron a tests de integración ya que las anotaciones de caché solo funcionan con contexto de
+ * Spring.
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ProductService Unit Tests")
@@ -41,7 +40,6 @@ class ProductServiceTest {
 
   private final Product testProduct = MockUtils.mockProduct(PRODUCT_ID);
   @Mock private ProductRepository productRepository;
-  @Mock private CacheService cacheService;
   @InjectMocks private ProductService productService;
 
   @Nested
@@ -66,7 +64,6 @@ class ProductServiceTest {
 
       verify(productRepository).existsBySku(any());
       verify(productRepository).save(any(Product.class));
-      verify(cacheService).put(any(String.class), any(Product.class), anyLong());
     }
 
     @Test
@@ -82,7 +79,6 @@ class ProductServiceTest {
 
       verify(productRepository).existsBySku(any());
       verify(productRepository, never()).save(any(Product.class));
-      verify(cacheService, never()).put(any(), any(), anyLong());
     }
 
     @ParameterizedTest
@@ -110,10 +106,9 @@ class ProductServiceTest {
   class ProductRetrievalTests {
 
     @Test
-    @DisplayName("Should get product by ID from repository when not in cache")
-    void shouldGetProductByIdFromRepositoryWhenNotInCache() {
+    @DisplayName("Should get product by ID from repository")
+    void shouldGetProductByIdFromRepository() {
       // Arrange
-      when(cacheService.get(any(String.class), eq(Product.class))).thenReturn(Optional.empty());
       when(productRepository.findById(PRODUCT_ID)).thenReturn(Optional.of(testProduct));
 
       // Act
@@ -123,34 +118,13 @@ class ProductServiceTest {
       assertThat(result).isPresent();
       assertThat(result.get().getId()).isEqualTo(PRODUCT_ID);
 
-      verify(cacheService).get(any(String.class), eq(Product.class));
       verify(productRepository).findById(PRODUCT_ID);
-      verify(cacheService).put(any(String.class), any(Product.class), anyLong());
-    }
-
-    @Test
-    @DisplayName("Should get product by ID from cache when available")
-    void shouldGetProductByIdFromCacheWhenAvailable() {
-      // Arrange
-      when(cacheService.get(any(String.class), eq(Product.class)))
-          .thenReturn(Optional.of(testProduct));
-
-      // Act
-      final Optional<Product> result = productService.getProductById(PRODUCT_ID);
-
-      // Assert
-      assertThat(result).isPresent();
-      assertThat(result.get().getId()).isEqualTo(PRODUCT_ID);
-
-      verify(cacheService).get(any(String.class), eq(Product.class));
-      verify(productRepository, never()).findById(any());
     }
 
     @Test
     @DisplayName("Should return empty when product not found")
     void shouldReturnEmptyWhenProductNotFound() {
       // Arrange
-      when(cacheService.get(any(String.class), eq(Product.class))).thenReturn(Optional.empty());
       when(productRepository.findById(PRODUCT_ID_2)).thenReturn(Optional.empty());
 
       // Act
@@ -159,7 +133,6 @@ class ProductServiceTest {
       // Assert
       assertThat(result).isEmpty();
 
-      verify(cacheService).get(any(String.class), eq(Product.class));
       verify(productRepository).findById(PRODUCT_ID_2);
     }
 
@@ -207,7 +180,6 @@ class ProductServiceTest {
 
       verify(productRepository).findById(PRODUCT_ID);
       verify(productRepository).save(any(Product.class));
-      verify(cacheService).put(any(String.class), any(Product.class), anyLong());
     }
 
     @ParameterizedTest
@@ -261,7 +233,6 @@ class ProductServiceTest {
 
       verify(productRepository).findById(PRODUCT_ID_2);
       verify(productRepository, never()).save(any(Product.class));
-      verify(cacheService, never()).put(any(), any(), anyLong());
     }
   }
 
@@ -270,8 +241,8 @@ class ProductServiceTest {
   class ProductDeletionTests {
 
     @Test
-    @DisplayName("Should delete product and evict from cache")
-    void shouldDeleteProductAndEvictFromCache() {
+    @DisplayName("Should delete product successfully")
+    void shouldDeleteProductSuccessfully() {
       // Arrange
       when(productRepository.findById(PRODUCT_ID)).thenReturn(Optional.of(testProduct));
 
@@ -280,7 +251,6 @@ class ProductServiceTest {
 
       // Assert
       verify(productRepository).deleteById(PRODUCT_ID);
-      verify(cacheService).evict("product:" + PRODUCT_ID);
     }
   }
 

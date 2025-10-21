@@ -2,29 +2,26 @@ package com.santandertecnologia.capabilitiestesting.application.service;
 
 import com.santandertecnologia.capabilitiestesting.domain.model.ExternalCustomer;
 import com.santandertecnologia.capabilitiestesting.domain.port.in.CustomerValidationUseCase;
-import com.santandertecnologia.capabilitiestesting.domain.port.out.CacheService;
 import com.santandertecnologia.capabilitiestesting.domain.port.out.ExternalCustomerService;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 /**
  * Servicio de aplicación para validación de clientes. Implementa Optional para evitar manejo
- * directo de nulls y usa enums para tipos seguros. Usa UUID para identificación y ExternalCustomer.
- * RiskLevel como inner class.
+ * directo de nulls y usa enums para tipos seguros. Usa UUID para identificación y
+ * ExternalCustomer.RiskLevel como inner class. Utiliza Spring Cache annotations para gestión
+ * automática de caché.
  */
 @Service
 @RequiredArgsConstructor
 @Log4j2
 public class CustomerValidationService implements CustomerValidationUseCase {
 
-  private static final String CUSTOMER_CACHE_PREFIX = "customer:";
-  private static final String RISK_LEVEL_CACHE_PREFIX = "risk:";
-  private static final long CACHE_TTL_SECONDS = 300; // 5 minutos
   private final ExternalCustomerService externalCustomerService;
-  private final CacheService cacheService;
 
   @Override
   public Optional<Boolean> validateCustomerCanOperate(final UUID customerId) {
@@ -44,46 +41,25 @@ public class CustomerValidationService implements CustomerValidationUseCase {
   }
 
   @Override
+  @Cacheable(value = "customers", key = "#customerId")
   public Optional<ExternalCustomer> getCustomerInfo(final UUID customerId) {
     log.debug("Getting customer info for: {}", customerId);
 
-    // Intentar obtener del caché primero
-    final Optional<ExternalCustomer> cachedCustomer =
-        cacheService.get(CUSTOMER_CACHE_PREFIX + customerId, ExternalCustomer.class);
-
-    if (cachedCustomer.isPresent()) {
-      log.debug("Customer found in cache: {}", customerId);
-      return cachedCustomer;
-    }
-
-    // Si no está en caché, obtener del servicio externo
     final Optional<ExternalCustomer> customer = externalCustomerService.getCustomerById(customerId);
-    customer.ifPresent(
-        c -> cacheService.put(CUSTOMER_CACHE_PREFIX + customerId, c, CACHE_TTL_SECONDS));
 
     return customer;
   }
 
   @Override
+  @Cacheable(value = "risk-levels", key = "#customerId")
   public Optional<ExternalCustomer.RiskLevel> getCustomerRiskLevel(final UUID customerId) {
     log.debug("Getting risk level for customer: {}", customerId);
-
-    // Intentar obtener del caché primero
-    final Optional<ExternalCustomer.RiskLevel> cachedRiskLevel =
-        cacheService.get(RISK_LEVEL_CACHE_PREFIX + customerId, ExternalCustomer.RiskLevel.class);
-
-    if (cachedRiskLevel.isPresent()) {
-      log.debug("Risk level found in cache for customer: {}", customerId);
-      return cachedRiskLevel;
-    }
 
     // Obtener del servicio externo o de la información del cliente
     final Optional<ExternalCustomer.RiskLevel> riskLevel =
         externalCustomerService
             .getCustomerRiskLevel(customerId)
             .or(() -> getCustomerInfo(customerId).map(ExternalCustomer::riskLevel));
-    riskLevel.ifPresent(
-        risk -> cacheService.put(RISK_LEVEL_CACHE_PREFIX + customerId, risk, CACHE_TTL_SECONDS));
 
     return riskLevel;
   }
