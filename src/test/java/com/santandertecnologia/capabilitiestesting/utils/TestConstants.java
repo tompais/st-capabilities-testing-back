@@ -44,10 +44,6 @@ public final class TestConstants {
   public static final String CUSTOMER_NAME = "Test Customer";
   public static final String CUSTOMER_EMAIL = "customer@santander.com";
 
-  // Cache keys
-  public static final String CACHE_KEY_USER_PREFIX = "user:";
-  public static final String CACHE_KEY_PRODUCT_PREFIX = "product:";
-
   private TestConstants() {
     // Utility class - prevent instantiation
   }

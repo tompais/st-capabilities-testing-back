@@ -2,11 +2,9 @@ package com.santandertecnologia.capabilitiestesting.application.service;
 
 import static com.santandertecnologia.capabilitiestesting.utils.TestConstants.CUSTOMER_ID;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import com.santandertecnologia.capabilitiestesting.domain.model.ExternalCustomer;
-import com.santandertecnologia.capabilitiestesting.domain.port.out.CacheService;
 import com.santandertecnologia.capabilitiestesting.domain.port.out.ExternalCustomerService;
 import com.santandertecnologia.capabilitiestesting.utils.MockUtils;
 import java.util.Optional;
@@ -23,15 +21,15 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
  * Tests parametrizados para CustomerValidationService. Demuestra @ParameterizedTest con diferentes
- * fuentes de datos. Refactorizado para usar MockUtils y TestConstants.
+ * fuentes de datos. Refactorizado para usar MockUtils y TestConstants. Las pruebas de caché se
+ * movieron a tests de integración ya que las anotaciones de caché solo funcionan con contexto de
+ * Spring.
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("CustomerValidationService Tests")
 class CustomerValidationServiceTest {
 
   @Mock private ExternalCustomerService externalCustomerService;
-
-  @Mock private CacheService cacheService;
 
   @InjectMocks private CustomerValidationService customerValidationService;
 
@@ -108,9 +106,6 @@ class CustomerValidationServiceTest {
     when(externalCustomerService.getCustomerById(CUSTOMER_ID)).thenReturn(Optional.of(customer));
     when(externalCustomerService.getCustomerRiskLevel(CUSTOMER_ID))
         .thenReturn(Optional.of(riskLevel));
-
-    // Configurar cache para que devuelva empty (cache miss) - necesario para getCustomerRiskLevel
-    when(cacheService.get(any(String.class), any(Class.class))).thenReturn(Optional.empty());
 
     // Act
     final Optional<Boolean> canOperate =

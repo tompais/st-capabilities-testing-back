@@ -2,7 +2,6 @@ package com.santandertecnologia.capabilitiestesting.application.service;
 
 import com.santandertecnologia.capabilitiestesting.domain.model.Product;
 import com.santandertecnologia.capabilitiestesting.domain.port.in.ProductUseCase;
-import com.santandertecnologia.capabilitiestesting.domain.port.out.CacheService;
 import com.santandertecnologia.capabilitiestesting.domain.port.out.ProductRepository;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -10,23 +9,25 @@ import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 /**
  * Servicio de aplicación para gestión de productos. Implementa Optional para evitar manejo directo
- * de nulls. Usa UUID para identificación y Product.Category como inner class.
+ * de nulls. Usa UUID para identificación y Product.Category como inner class. Utiliza Spring Cache
+ * annotations para gestión automática de caché.
  */
 @Service
 @RequiredArgsConstructor
 @Log4j2
 public class ProductService implements ProductUseCase {
 
-  private static final String PRODUCT_CACHE_PREFIX = "product:";
-  private static final long CACHE_TTL_SECONDS = 600; // 10 minutos
   private final ProductRepository productRepository;
-  private final CacheService cacheService;
 
   @Override
+  @CachePut(value = "products", key = "#result.id")
   public Product createProduct(final Product product) {
     log.info("Creating new product with name: {}", product.getName());
 
@@ -52,27 +53,17 @@ public class ProductService implements ProductUseCase {
             : product;
 
     final Product savedProduct = productRepository.save(productToSave);
-    cacheProduct(savedProduct);
 
     log.info("Product created successfully with ID: {}", savedProduct.getId());
     return savedProduct;
   }
 
   @Override
+  @Cacheable(value = "products", key = "#id")
   public Optional<Product> getProductById(final UUID id) {
     log.debug("Getting product by ID: {}", id);
 
-    // Intentar obtener del caché primero
-    final Optional<Product> cachedProduct =
-        cacheService.get(PRODUCT_CACHE_PREFIX + id, Product.class);
-    if (cachedProduct.isPresent()) {
-      log.debug("Product found in cache with ID: {}", id);
-      return cachedProduct;
-    }
-
-    // Si no está en caché, buscar en repositorio
     final Optional<Product> product = productRepository.findById(id);
-    product.ifPresent(this::cacheProduct);
 
     return product;
   }
@@ -84,6 +75,7 @@ public class ProductService implements ProductUseCase {
   }
 
   @Override
+  @CachePut(value = "products", key = "#id")
   public Optional<Product> updateProductStock(final UUID id, final Integer newStock) {
     log.info("Updating stock for product ID: {} to: {}", id, newStock);
 
@@ -112,7 +104,6 @@ public class ProductService implements ProductUseCase {
                       .build();
 
               final Product savedProduct = productRepository.save(updatedProduct);
-              cacheProduct(savedProduct);
 
               log.info(
                   "Product stock updated successfully for ID: {}. Active status: {}", id, isActive);
@@ -121,6 +112,7 @@ public class ProductService implements ProductUseCase {
   }
 
   @Override
+  @CacheEvict(value = "products", key = "#id")
   public boolean deleteProduct(final UUID id) {
     log.info("Deleting product with ID: {}", id);
 
@@ -129,7 +121,6 @@ public class ProductService implements ProductUseCase {
         .map(
             product -> {
               productRepository.deleteById(id);
-              cacheService.evict(PRODUCT_CACHE_PREFIX + id);
               log.info("Product deleted successfully with ID: {}", id);
               return true;
             })
@@ -154,11 +145,5 @@ public class ProductService implements ProductUseCase {
 
   private boolean validateStock(final UUID id, final Integer newStock) {
     return newStock != null && newStock >= 0;
-  }
-
-  private void cacheProduct(final Product product) {
-    if (product != null && product.getId() != null) {
-      cacheService.put(PRODUCT_CACHE_PREFIX + product.getId(), product, CACHE_TTL_SECONDS);
-    }
   }
 }
